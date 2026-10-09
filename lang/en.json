@@ -87,7 +87,19 @@
       "EmptyStart": "No prepared roll yet. Click “New veiled roll” to start.",
       "NoneDone": "No roll played yet.",
       "HistoryHint": "Kept across sessions; visible to the GM only.",
-      "NewSessionHint": "Puts every roll back to “to do” (history is kept)."
+      "NewSessionHint": "Puts every roll back to “to do” (history is kept).",
+      "InProgress": "In progress",
+      "Answered": "Answered",
+      "HasRolled": "Has rolled",
+      "NotRolled": "Has not rolled yet",
+      "Remind": "Remind",
+      "RemindHint": "Send the invitation again to the players who have not rolled yet",
+      "CloseRequest": "Close",
+      "CloseRequestHint": "Stop waiting for latecomers (the roll moves to “Done” if anyone answered)",
+      "Filter": "Filter",
+      "FilterPlaceholder": "Filter by roll, scene, folder or player…",
+      "ToFix": "Needs fixing",
+      "EditScene": "Edit scene"
     },
     "Library": {
       "Title": "Veiled Rolls — Block Library",
@@ -278,7 +290,9 @@
     },
     "Whisper": {
       "PlayerTitle": "For {actor}",
-      "YourResult": "Your result: {total}"
+      "YourResult": "Your result: {total}",
+      "Personal": "Your result: personal",
+      "PersonalHint": "This answer is meant for you: it holds true, whatever your die says."
     },
     "Diag": {
       "Title": "Veiled roll — GM diagnostics",
@@ -306,7 +320,8 @@
       "NeedActive": "Activate a block first to request a roll.",
       "ScopeAll": "all",
       "Sent": "Request sent: {roll} ({scope}).",
-      "AllDone": "All requested rolls are done: filter disabled."
+      "AllDone": "All requested rolls are done: filter disabled.",
+      "Reminded": "Reminder sent: {roll} ({scope})."
     },
     "RollStatus": {
       "todo": "To do",

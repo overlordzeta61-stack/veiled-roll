@@ -2,6 +2,22 @@
 
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.1.0] — 2026-10-09
+
+### Modifié
+
+- **Réponse personnelle : le joueur ne voit plus son résultat.** Il lance ses dés normalement, mais son chuchotement affiche « Ton résultat : personnel » à la place du total, avec la mention « Cette réponse t'est réservée : elle est vraie, quel que soit ton dé ». Un mauvais jet ne le fait donc plus douter. Le MJ voit toujours le vrai total (diagnostic, panneau, historique). Même chose pour « Renvoyer » depuis l'historique.
+- Dés 3D privés (Dice So Nice) : l'animation est désormais jouée par le MJ une fois la réponse connue, et **pas du tout** pour une réponse personnelle (la face du dé trahirait le résultat).
+- Onglet **À faire** repensé :
+  - zone **En cours** épinglée en haut : pour chaque jet demandé, progression (« 1/2 »), joueurs ayant lancé et joueurs attendus, réponse personnelle signalée ;
+  - **Relancer** renvoie l'invite aux seuls retardataires, **Clore** arrête d'attendre (le jet passe en « Fait » si quelqu'un a répondu, sinon il revient « à faire ») ;
+  - jets regroupés par **dossier puis scène** : le nom de la scène et son bouton de modification n'apparaissent qu'une fois ;
+  - type de jet affiché sous le libellé, et joueurs ayant une réponse personnelle visibles directement en étiquettes ;
+  - **filtre instantané** (jet, scène, dossier, joueur) dès que la liste dépasse six jets ;
+  - liste vide : bouton « Nouveau jet voilé » directement proposé.
+- Quand le MJ lance le jet à la place d'un joueur (sur son personnage), ce joueur est bien compté comme ayant répondu.
+- Nouvelle commande `npm run package` : produit `build/veiled-rolls.zip` prêt à installer.
+
 ## [2.0.0] — 2026-10-09
 
 ### Ajouté

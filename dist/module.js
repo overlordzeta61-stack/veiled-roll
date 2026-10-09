@@ -677,11 +677,15 @@ const FALLBACK_SKILL_KEYS = [
   "sur"
 ];
 const FALLBACK_ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
-async function showDicePrivately(roll, whisperUserIds) {
+async function showDicePrivately(rollData, whisperUserIds, rollerId) {
   const dice3d = game.dice3d;
   if (!dice3d?.showForRoll) return;
   try {
-    await dice3d.showForRoll(roll, game.user, true, whisperUserIds, false, null, null);
+    const RollClass = CONFIG?.Dice?.rolls?.[0] ?? globalThis.Roll;
+    const roll = RollClass?.fromData?.(rollData);
+    if (!roll) return;
+    const roller = game.users?.get(rollerId) ?? game.user;
+    await dice3d.showForRoll(roll, roller, true, whisperUserIds, false, null, null);
   } catch (error) {
     console.warn("[veiled-rolls] Dice So Nice private animation failed", error);
   }
@@ -856,18 +860,21 @@ function outstandingSelectorIds() {
   return new Set(outstanding.keys());
 }
 function outstandingUsers(rollType, key) {
-  return [...outstanding.get(selectorId(rollType, key)) ?? []];
+  return [...outstanding.get(selectorId(rollType, key))?.waiting ?? []];
+}
+function requestProgress(rollType, key) {
+  const pending2 = outstanding.get(selectorId(rollType, key));
+  return pending2 ? { expected: [...pending2.expected], waiting: [...pending2.waiting] } : null;
 }
 function resetRequests() {
   outstanding.clear();
 }
-function requestRoll(rollType, key, targetUserIds) {
+function emitFor(rollType, key, targetUserIds) {
   const state = getState();
   if (!state.active || !state.blockId || !state.descriptor) {
     ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Request.NeedActive"));
-    return false;
+    return null;
   }
-  const audience = targetUserIds && targetUserIds.length > 0 ? targetUserIds : connectedPlayers().map((p) => p.id);
   const request = {
     rollType,
     key,
@@ -878,8 +885,14 @@ function requestRoll(rollType, key, targetUserIds) {
     requestId: foundry.utils.randomID()
   };
   emitRollRequest(request);
+  return request;
+}
+function requestRoll(rollType, key, targetUserIds) {
+  const request = emitFor(rollType, key, targetUserIds);
+  if (!request) return false;
+  const audience = request.targetUserIds ?? connectedPlayers().map((p) => p.id);
   if (audience.length > 0) {
-    outstanding.set(selectorId(rollType, key), new Set(audience));
+    outstanding.set(selectorId(rollType, key), { expected: [...audience], waiting: new Set(audience) });
   }
   const scope = request.targetUserIds === null ? game.i18n.localize("VEILED_ROLLS.Request.ScopeAll") : request.targetUserIds.map((id) => game.users?.get(id)?.name ?? id).join(", ");
   ui.notifications?.info(
@@ -887,17 +900,37 @@ function requestRoll(rollType, key, targetUserIds) {
   );
   return true;
 }
-async function markRequestProgress(userId, rollType, key) {
+function remindRoll(rollType, key) {
+  const waiting = outstandingUsers(rollType, key);
+  if (waiting.length === 0) return 0;
+  if (!emitFor(rollType, key, waiting)) return 0;
+  ui.notifications?.info(
+    game.i18n.format("VEILED_ROLLS.Request.Reminded", {
+      roll: getKeyLabel(rollType, key),
+      scope: waiting.map((id) => game.users?.get(id)?.name ?? id).join(", ")
+    })
+  );
+  return waiting.length;
+}
+async function closeIfIdle() {
+  if (outstanding.size > 0) return;
+  await disable();
+  resetRequests();
+  ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Request.AllDone"));
+}
+async function closeRequest(rollType, key) {
+  if (!outstanding.delete(selectorId(rollType, key))) return;
+  await closeIfIdle();
+}
+async function markRequestProgress(candidateUserIds, rollType, key) {
   const id = selectorId(rollType, key);
-  const expected = outstanding.get(id);
-  if (!expected) return;
-  expected.delete(userId);
-  if (expected.size === 0) outstanding.delete(id);
-  if (outstanding.size === 0) {
-    await disable();
-    resetRequests();
-    ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Request.AllDone"));
-  }
+  const pending2 = outstanding.get(id);
+  if (!pending2) return;
+  const answered = candidateUserIds.find((u) => pending2.waiting.has(u));
+  if (answered === void 0) return;
+  pending2.waiting.delete(answered);
+  if (pending2.waiting.size === 0) outstanding.delete(id);
+  await closeIfIdle();
 }
 const defaultRandom = Math.random;
 function findBranch(block, rollType, key) {
@@ -1049,6 +1082,9 @@ function toneClass(tone) {
 function buildPlayerContent(block, context, actorName, resolved) {
   const title = t("Whisper.PlayerTitle", { actor: escapeText$1(actorName) });
   const body = resolved.paragraphs.map((p) => `<p>${p}</p>`).join("");
+  if (resolved.personal) {
+    return `<div class="veiled-rolls-whisper is-personal"><p class="veiled-rolls-whisper-title">${title}</p>${body}${personalBadge()}</div>`;
+  }
   let total = "";
   if (block.options.show_result_to_player) {
     const natural = context.natural_result !== null ? ` (${t("Diag.Natural")} ${context.natural_result})` : "";
@@ -1058,6 +1094,9 @@ function buildPlayerContent(block, context, actorName, resolved) {
   }
   const tone = block.options.color_by_tier ? toneClass(resolved.tone) : "";
   return `<div class="veiled-rolls-whisper${tone}"><p class="veiled-rolls-whisper-title">${title}</p>${body}${total}</div>`;
+}
+function personalBadge() {
+  return `<p class="veiled-rolls-whisper-total veiled-rolls-whisper-personal">${t("Whisper.Personal")}</p><p class="veiled-rolls-whisper-personal-hint">${t("Whisper.PersonalHint")}</p>`;
 }
 function buildGmContent(block, context, resolved, actorName, userName2, keyLabel) {
   const rows = [
@@ -1145,7 +1184,7 @@ async function resendHistory(entry) {
   const title = t("Whisper.PlayerTitle", { actor: escapeText$1(entry.actorName) });
   await ChatMessage.create({
     speaker: speakerFor(actor, entry.actorName),
-    content: `<div class="veiled-rolls-whisper"><p class="veiled-rolls-whisper-title">${title}</p>${body}</div>`,
+    content: entry.personal ? `<div class="veiled-rolls-whisper is-personal"><p class="veiled-rolls-whisper-title">${title}</p>${body}${personalBadge()}</div>` : `<div class="veiled-rolls-whisper"><p class="veiled-rolls-whisper-title">${title}</p>${body}</div>`,
     whisper: recipients,
     flags: { [FLAG_SCOPE]: { kind: "resend", blockId: entry.blockId } }
   });
@@ -1256,12 +1295,7 @@ async function handlePostRoll(rolls, _data) {
   if (!p) return;
   pending.delete(post.requestId);
   const descriptor = getState().descriptor;
-  if (descriptor?.diceSoNiceMode === "private" && rolls[0]) {
-    const audience = Array.from(
-      new Set([game.user?.id, ...activeGmIds()].filter(Boolean))
-    );
-    await showDicePrivately(rolls[0], audience);
-  }
+  const rollData = descriptor?.diceSoNiceMode === "private" ? rolls[0]?.toJSON?.() ?? null : null;
   const context = {
     request_id: post.requestId,
     user_id: p.userId,
@@ -1274,7 +1308,8 @@ async function handlePostRoll(rolls, _data) {
     formula: post.formula,
     timestamp: Date.now(),
     block_id: p.blockId,
-    filter_revision: p.filterRevision
+    filter_revision: p.filterRevision,
+    roll_data: rollData
   };
   if (isResponsibleGm()) {
     markLocallyProcessed(context.request_id);
@@ -1363,8 +1398,12 @@ async function processFilteredRoll(context) {
         makeParticipant(context.actor_uuid, actorName, "accepted", context.total)
       );
       await incrementProcessed();
-      await markRequestProgress(context.user_id, context.roll_type, context.key);
+      await markRequestProgress(candidates, context.roll_type, context.key);
       return;
+    }
+    if (block.options.dice_so_nice_mode === "private" && !resolved.personal && context.roll_data) {
+      const audience = Array.from(/* @__PURE__ */ new Set([context.user_id, ...activeGmIds()]));
+      await showDicePrivately(context.roll_data, audience, context.user_id);
     }
     await deliverResponse({
       block,
@@ -1401,7 +1440,7 @@ async function processFilteredRoll(context) {
     );
     const processed = await incrementProcessed();
     await maybeAutoClose(block, processed);
-    await markRequestProgress(context.user_id, context.roll_type, context.key);
+    await markRequestProgress(candidates, context.roll_type, context.key);
   } catch (error) {
     console.error("[veiled-rolls] processing failed", error);
     await failSafe(
@@ -2213,6 +2252,8 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
   };
   /** Current view. */
   view = "todo";
+  /** Text of the quick filter, kept across re-renders. */
+  filter = "";
   /** Folder names the GM has collapsed, per view, to keep long lists readable. */
   collapsedFolders = /* @__PURE__ */ new Set();
   /** Cache of history shown, for action handlers to read by id. */
@@ -2258,6 +2299,8 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
           personal: Boolean(h.personal),
           preview: plain(h.responseParagraphs.join(" "))
         }));
+        const label = s.label?.trim() || getKeyLabel(s.roll_type, s.key);
+        const personal = (branch?.personal_responses ?? []).filter((p) => p.user_id).map((p) => ({ id: p.user_id, name: userName(p.user_id) }));
         rows.push({
           id,
           blockId: block.id,
@@ -2265,24 +2308,27 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
           folder: block.folder?.trim() || noFolder,
           rollType: s.roll_type,
           key: s.key,
-          label: s.label?.trim() || getKeyLabel(s.roll_type, s.key),
+          label,
           valid,
           status,
-          waiting: requested ? outstandingUsers(s.roll_type, s.key).map(userName).join(", ") : "",
-          personalNames: (branch?.personal_responses ?? []).map((p) => userName(p.user_id)).join(", "),
+          typeLabel: game.i18n.localize(`VEILED_ROLLS.RollType.${s.roll_type}`),
+          personal,
+          personalNames: personal.map((p) => p.name).join(", "),
+          search: [label, block.name, block.folder, ...personal.map((p) => p.name)].join(" ").toLowerCase(),
           doneAt: doneAt !== void 0 ? shortDateTime(doneAt) : "",
           results
         });
       }
     }
-    const todoRows = rows.filter((r) => r.status !== "done").sort((a, b) => Number(b.status === "requested") - Number(a.status === "requested"));
+    const inProgress = rows.filter((r) => r.status === "requested").map((r) => this.progressCard(r));
+    const todoRows = rows.filter((r) => r.status === "todo");
     const doneRows = rows.filter((r) => r.status === "done");
     this.recent = history.slice(-100).reverse();
     const players = connectedPlayers();
     return {
       view: this.view,
       views: [
-        { id: "todo", label: "VEILED_ROLLS.Panel.ViewTodo", count: todoRows.length, icon: "fa-list-check" },
+        { id: "todo", label: "VEILED_ROLLS.Panel.ViewTodo", count: todoRows.length + inProgress.length, icon: "fa-list-check" },
         { id: "done", label: "VEILED_ROLLS.Panel.ViewDone", count: doneRows.length, icon: "fa-circle-check" },
         { id: "history", label: "VEILED_ROLLS.Panel.ViewHistory", count: history.length, icon: "fa-clock-rotate-left" }
       ].map((v) => ({ ...v, current: v.id === this.view })),
@@ -2290,6 +2336,9 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
       isDone: this.view === "done",
       isHistory: this.view === "history",
       folders: this.groupByFolder(this.view === "done" ? doneRows : todoRows),
+      inProgress,
+      showFilter: (this.view === "done" ? doneRows : todoRows).length > 6,
+      filter: this.filter,
       hasBlocks: this.blocks.length > 0,
       hasPlayers: players.length > 0,
       connected: players.map((p) => p.name).join(", "),
@@ -2317,24 +2366,53 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
       }))
     };
   }
-  /** Group rows by folder, sorted by folder name, with progress counts. */
+  /** A requested roll with who answered and who is still awaited. */
+  progressCard(row) {
+    const progress = requestProgress(row.rollType, row.key) ?? { expected: [], waiting: [] };
+    const waiting = new Set(progress.waiting);
+    const personal = new Set(row.personal.map((p) => p.id));
+    const players = progress.expected.map((id) => ({
+      name: userName(id),
+      answered: !waiting.has(id),
+      personal: personal.has(id)
+    }));
+    const answered = players.filter((p) => p.answered).length;
+    return {
+      ...row,
+      players,
+      answered,
+      expected: players.length,
+      percent: players.length ? Math.round(answered / players.length * 100) : 0,
+      canRemind: waiting.size > 0
+    };
+  }
+  /**
+   * Group rows by folder, then by scene, so a scene's name and edit button
+   * appear once above its rolls instead of on every row.
+   */
   groupByFolder(rows) {
-    const groups = /* @__PURE__ */ new Map();
+    const folders = /* @__PURE__ */ new Map();
     for (const row of rows) {
-      const list = groups.get(row.folder) ?? [];
+      const scenes = folders.get(row.folder) ?? /* @__PURE__ */ new Map();
+      const list = scenes.get(row.blockId) ?? [];
       list.push(row);
-      groups.set(row.folder, list);
+      scenes.set(row.blockId, list);
+      folders.set(row.folder, scenes);
     }
-    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, list]) => ({
+    return [...folders.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, scenes]) => ({
       name,
       collapsed: this.collapsedFolders.has(`${this.view}|${name}`),
-      count: list.length,
-      rolls: list.map((r) => ({
-        ...r,
-        isTodo: r.status === "todo",
-        isRequested: r.status === "requested",
-        isDone: r.status === "done",
-        statusLabel: game.i18n.localize(`VEILED_ROLLS.RollStatus.${r.status}`)
+      count: [...scenes.values()].reduce((n, list) => n + list.length, 0),
+      scenes: [...scenes.values()].sort((a, b) => a[0].blockName.localeCompare(b[0].blockName)).map((list) => ({
+        blockId: list[0].blockId,
+        name: list[0].blockName,
+        valid: list[0].valid,
+        search: list.map((r) => r.search).join(" "),
+        rolls: list.map((r) => ({
+          ...r,
+          isDone: r.status === "done",
+          statusLabel: game.i18n.localize(`VEILED_ROLLS.RollStatus.${r.status}`)
+        }))
       }))
     }));
   }
@@ -2346,8 +2424,16 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   _onRender(_context, _options) {
     const root = this.element;
-    if (!root?.addEventListener || root.dataset.vrBound === "1") return;
+    if (!root?.addEventListener) return;
+    this.applyFilter();
+    if (root.dataset.vrBound === "1") return;
     root.dataset.vrBound = "1";
+    root.addEventListener("input", (event) => {
+      const el = event.target;
+      if (el?.dataset?.vrFilter === void 0) return;
+      this.filter = el.value;
+      this.applyFilter();
+    });
     root.addEventListener("click", (event) => {
       const button = event.target?.closest?.("[data-vr-action]");
       if (!button || !root.contains(button)) return;
@@ -2357,6 +2443,19 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
       });
     });
   }
+  /** Hide the rolls (and emptied scenes/folders) that do not match the filter. */
+  applyFilter() {
+    const root = this.element;
+    if (!root?.querySelectorAll) return;
+    const q = this.filter.trim().toLowerCase();
+    for (const el of root.querySelectorAll("[data-search]")) {
+      el.hidden = q.length > 0 && !(el.dataset.search ?? "").includes(q);
+    }
+    for (const folder of root.querySelectorAll(".veiled-rolls-folder")) {
+      const scenes = folder.querySelectorAll(".vr-scene");
+      folder.hidden = scenes.length > 0 && [...scenes].every((el) => el.hidden);
+    }
+  }
   /** Route a delegated click to its handler. */
   async dispatch(action, data) {
     const blockId = data.block ?? "";
@@ -2365,6 +2464,7 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
     switch (action) {
       case "view":
         this.view = data.view ?? "todo";
+        this.filter = "";
         break;
       case "folder": {
         const id = `${this.view}|${data.folder ?? ""}`;
@@ -2381,6 +2481,12 @@ class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
           if (!picked) return;
           await this.request(blockId, rollType, key, picked);
         }
+        break;
+      case "remind":
+        if (rollType) remindRoll(rollType, key);
+        return;
+      case "closeRequest":
+        if (rollType) await closeRequest(rollType, key);
         break;
       case "markDone":
         if (rollType) await markDone(blockId, rollType, key);

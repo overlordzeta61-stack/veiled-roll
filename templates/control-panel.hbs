@@ -61,98 +61,168 @@
   {{!-- TO DO / DONE --}}
   {{#unless isHistory}}
   <section class="vr-list">
-    {{#if isTodo}}{{#unless hasPlayers}}
+    {{#if isTodo}}
+    {{#unless hasPlayers}}
     <p class="veiled-rolls-muted vr-note"><i class="fa-solid fa-plug-circle-xmark" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.RequestNoPlayers"}}</p>
-    {{/unless}}{{/if}}
+    {{/unless}}
+
+    {{!-- In progress: requested rolls, pinned on top --}}
+    {{#if inProgress.length}}
+    <div class="vr-progress-zone">
+      <p class="vr-zone-title"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.InProgress"}}</p>
+      {{#each inProgress}}
+      <article class="vr-progress">
+        <header class="vr-progress-head">
+          <span class="vr-roll-label">{{this.label}}</span>
+          <span class="veiled-rolls-muted vr-progress-scene">{{this.blockName}}</span>
+          <span class="vr-progress-count" title="{{localize "VEILED_ROLLS.Panel.Answered"}}">{{this.answered}}/{{this.expected}}</span>
+        </header>
+        <div class="vr-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{this.expected}}" aria-valuenow="{{this.answered}}">
+          <span style="width: {{this.percent}}%"></span>
+        </div>
+        <ul class="vr-player-chips">
+          {{#each this.players}}
+          <li class="vr-player-chip {{#if this.answered}}is-answered{{else}}is-waiting{{/if}}"
+              title="{{#if this.answered}}{{localize "VEILED_ROLLS.Panel.HasRolled"}}{{else}}{{localize "VEILED_ROLLS.Panel.NotRolled"}}{{/if}}">
+            <i class="fa-solid {{#if this.answered}}fa-check{{else}}fa-hourglass-half{{/if}}" aria-hidden="true"></i>
+            {{this.name}}
+            {{#if this.personal}}<i class="fa-solid fa-user-secret vr-personal-flag" title="{{localize "VEILED_ROLLS.Panel.HasPersonal"}}"></i>{{/if}}
+          </li>
+          {{/each}}
+        </ul>
+        <div class="vr-progress-actions">
+          {{#if this.canRemind}}
+          <button type="button" class="cc-chip" data-vr-action="remind" data-type="{{this.rollType}}" data-key="{{this.key}}"
+                  title="{{localize "VEILED_ROLLS.Panel.RemindHint"}}">
+            <i class="fa-solid fa-bell" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.Remind"}}
+          </button>
+          {{/if}}
+          <button type="button" class="cc-chip" data-vr-action="closeRequest" data-type="{{this.rollType}}" data-key="{{this.key}}"
+                  title="{{localize "VEILED_ROLLS.Panel.CloseRequestHint"}}">
+            <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.CloseRequest"}}
+          </button>
+        </div>
+      </article>
+      {{/each}}
+    </div>
+    {{/if}}
+    {{/if}}
+
+    {{#if showFilter}}
+    <label class="vr-filter">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <span class="veiled-rolls-sr-only">{{localize "VEILED_ROLLS.Panel.Filter"}}</span>
+      <input type="search" data-vr-filter value="{{filter}}" autocomplete="off"
+             placeholder="{{localize "VEILED_ROLLS.Panel.FilterPlaceholder"}}" />
+    </label>
+    {{/if}}
 
     {{#each folders}}
     <div class="veiled-rolls-folder {{#if this.collapsed}}is-collapsed{{/if}}">
       <button type="button" class="veiled-rolls-folder-head" data-vr-action="folder" data-folder="{{this.name}}"
               aria-expanded="{{#if this.collapsed}}false{{else}}true{{/if}}">
         <i class="fa-solid {{#if this.collapsed}}fa-chevron-right{{else}}fa-chevron-down{{/if}}" aria-hidden="true"></i>
+        <i class="fa-solid fa-folder{{#unless this.collapsed}}-open{{/unless}} veiled-rolls-muted" aria-hidden="true"></i>
         <span class="veiled-rolls-folder-name">{{this.name}}</span>
         <span class="vr-count">{{this.count}}</span>
       </button>
       {{#unless this.collapsed}}
-      <ul class="veiled-rolls-request-list">
-        {{#each this.rolls}}
-        <li class="vr-roll status-{{this.status}}">
-          <div class="vr-roll-main">
-            <span class="vr-roll-label">
-              {{#unless this.valid}}<i class="fa-solid fa-triangle-exclamation veiled-rolls-warn"
-                title="{{localize "VEILED_ROLLS.Library.HasError"}}"></i>{{/unless}}
-              {{this.label}}
-              {{#if this.personalNames}}<i class="fa-solid fa-user-secret vr-personal-flag"
-                title="{{localize "VEILED_ROLLS.Panel.PersonalFor"}} {{this.personalNames}}"
-                aria-label="{{localize "VEILED_ROLLS.Panel.PersonalFor"}} {{this.personalNames}}"></i>{{/if}}
-            </span>
-            <span class="vr-roll-block veiled-rolls-muted">{{this.blockName}}</span>
-            {{#if this.isRequested}}
-            <span class="vr-roll-waiting"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
-              {{#if this.waiting}}{{localize "VEILED_ROLLS.Panel.Waiting"}} {{this.waiting}}{{else}}{{localize "VEILED_ROLLS.RollStatus.requested"}}{{/if}}</span>
-            {{/if}}
-            {{#if this.isDone}}
-            <span class="vr-roll-when veiled-rolls-muted"><i class="fa-solid fa-check" aria-hidden="true"></i> {{this.doneAt}}</span>
-            {{/if}}
-          </div>
+      {{#each this.scenes}}
+      <div class="vr-scene" data-search="{{this.search}}">
+        <div class="vr-scene-head">
+          <span class="vr-scene-name">{{this.name}}</span>
+          {{#unless this.valid}}
+          <span class="vr-scene-invalid"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.ToFix"}}</span>
+          {{/unless}}
+          <button type="button" class="veiled-rolls-icon vr-scene-edit" data-vr-action="edit" data-block="{{this.blockId}}"
+                  title="{{localize "VEILED_ROLLS.Panel.EditScene"}}" aria-label="{{localize "VEILED_ROLLS.Panel.EditScene"}}">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+          </button>
+        </div>
+        <ul class="veiled-rolls-request-list">
+          {{#each this.rolls}}
+          <li class="vr-roll status-{{this.status}}" data-search="{{this.search}}">
+            <div class="vr-roll-main">
+              <span class="vr-roll-label">{{this.label}}</span>
+              <span class="vr-roll-meta">
+                <span class="vr-type-tag">{{this.typeLabel}}</span>
+                {{#each this.personal}}
+                <span class="vr-personal-chip" title="{{localize "VEILED_ROLLS.Panel.PersonalFor"}} {{this.name}}">
+                  <i class="fa-solid fa-user-secret" aria-hidden="true"></i> {{this.name}}
+                </span>
+                {{/each}}
+                {{#if this.isDone}}
+                <span class="vr-roll-when veiled-rolls-muted"><i class="fa-solid fa-check" aria-hidden="true"></i> {{this.doneAt}}</span>
+                {{/if}}
+              </span>
+            </div>
 
-          <div class="vr-roll-actions">
-            {{#if this.valid}}
-            <button type="button" class="cc-chip {{#if this.isTodo}}cc-chip--primary{{/if}}" data-vr-action="requestGroup"
-                    data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
-                    title="{{localize "VEILED_ROLLS.Panel.RequestGroupHint"}}">
-              <i class="fa-solid fa-users" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.RequestGroup"}}
-            </button>
-            <button type="button" class="cc-chip" data-vr-action="requestPlayers"
-                    data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
-                    title="{{localize "VEILED_ROLLS.Panel.RequestPlayersHint"}}">
-              <i class="fa-solid fa-user" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.RequestPlayers"}}
-            </button>
-            {{/if}}
-            <button type="button" class="veiled-rolls-icon" data-vr-action="edit" data-block="{{this.blockId}}"
-                    title="{{localize "VEILED_ROLLS.Library.Edit"}}" aria-label="{{localize "VEILED_ROLLS.Library.Edit"}}">
-              <i class="fa-solid fa-pen" aria-hidden="true"></i>
-            </button>
-            {{#if this.isDone}}
-            <button type="button" class="veiled-rolls-icon" data-vr-action="markTodo"
-                    data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
-                    title="{{localize "VEILED_ROLLS.Panel.MarkTodo"}}" aria-label="{{localize "VEILED_ROLLS.Panel.MarkTodo"}}">
-              <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
-            </button>
-            {{else}}{{#unless this.isRequested}}
-            <button type="button" class="veiled-rolls-icon" data-vr-action="markDone"
-                    data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
-                    title="{{localize "VEILED_ROLLS.Panel.MarkDone"}}" aria-label="{{localize "VEILED_ROLLS.Panel.MarkDone"}}">
-              <i class="fa-solid fa-check" aria-hidden="true"></i>
-            </button>
-            {{/unless}}{{/if}}
-          </div>
+            <div class="vr-roll-actions">
+              {{#if this.valid}}
+              <button type="button" class="cc-chip {{#unless this.isDone}}cc-chip--primary{{/unless}}" data-vr-action="requestGroup"
+                      data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
+                      title="{{localize "VEILED_ROLLS.Panel.RequestGroupHint"}}">
+                <i class="fa-solid fa-users" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.RequestGroup"}}
+              </button>
+              <button type="button" class="cc-chip" data-vr-action="requestPlayers"
+                      data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
+                      title="{{localize "VEILED_ROLLS.Panel.RequestPlayersHint"}}">
+                <i class="fa-solid fa-user" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.RequestPlayers"}}
+              </button>
+              {{/if}}
+              {{#if this.isDone}}
+              <button type="button" class="veiled-rolls-icon" data-vr-action="markTodo"
+                      data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
+                      title="{{localize "VEILED_ROLLS.Panel.MarkTodo"}}" aria-label="{{localize "VEILED_ROLLS.Panel.MarkTodo"}}">
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+              </button>
+              {{else}}
+              <button type="button" class="veiled-rolls-icon" data-vr-action="markDone"
+                      data-block="{{this.blockId}}" data-type="{{this.rollType}}" data-key="{{this.key}}"
+                      title="{{localize "VEILED_ROLLS.Panel.MarkDone"}}" aria-label="{{localize "VEILED_ROLLS.Panel.MarkDone"}}">
+                <i class="fa-solid fa-check" aria-hidden="true"></i>
+              </button>
+              {{/if}}
+            </div>
 
-          {{#if this.isDone}}{{#if this.results.length}}
-          <ul class="vr-results">
-            {{#each this.results}}
-            <li>
-              <strong>{{this.actorName}}</strong>
-              <span class="veiled-rolls-total">{{this.total}}</span>
-              {{#if this.personal}}<i class="fa-solid fa-user-secret vr-personal-flag" title="{{localize "VEILED_ROLLS.Panel.PersonalSent"}}"></i>{{/if}}
-              <span class="vr-results-preview veiled-rolls-muted">{{this.preview}}</span>
-            </li>
-            {{/each}}
-          </ul>
-          {{/if}}{{/if}}
-        </li>
-        {{/each}}
-      </ul>
+            {{#if this.isDone}}{{#if this.results.length}}
+            <ul class="vr-results">
+              {{#each this.results}}
+              <li>
+                <strong>{{this.actorName}}</strong>
+                {{#if this.personal}}
+                <span class="vr-personal-chip"><i class="fa-solid fa-user-secret" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.PersonalTag"}}</span>
+                {{/if}}
+                <span class="veiled-rolls-total">{{this.total}}</span>
+                <span class="vr-results-preview veiled-rolls-muted">{{this.preview}}</span>
+              </li>
+              {{/each}}
+            </ul>
+            {{/if}}{{/if}}
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+      {{/each}}
       {{/unless}}
     </div>
     {{else}}
-    <div class="veiled-rolls-empty">
+    {{#unless inProgress.length}}
+    <div class="veiled-rolls-empty vr-empty">
       {{#if isTodo}}
-        {{#if hasBlocks}}<i class="fa-solid fa-champagne-glasses" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.AllDone"}}{{else}}{{localize "VEILED_ROLLS.Panel.EmptyStart"}}{{/if}}
+        {{#if hasBlocks}}
+        <i class="fa-solid fa-champagne-glasses" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.AllDone"}}
+        {{else}}
+        <p>{{localize "VEILED_ROLLS.Panel.EmptyStart"}}</p>
+        <button type="button" class="veiled-rolls-primary" data-vr-action="create">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Panel.NewRoll"}}
+        </button>
+        {{/if}}
       {{else}}
         {{localize "VEILED_ROLLS.Panel.NoneDone"}}
       {{/if}}
     </div>
+    {{/unless}}
     {{/each}}
   </section>
   {{/unless}}

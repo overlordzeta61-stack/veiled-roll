@@ -176,15 +176,12 @@ export async function handlePostRoll(
   if (!p) return;
   pending.delete(post.requestId);
 
-  // Optional private Dice So Nice animation: the public card is suppressed, so
-  // DSN is driven directly here, visible only to the roller and the GMs.
+  // The private Dice So Nice animation is played by the GM once the response is
+  // known (see processFilteredRoll): a player with a personal response must not
+  // see their die face. The serialized roll travels with the context for that.
   const descriptor = getState().descriptor;
-  if (descriptor?.diceSoNiceMode === "private" && rolls[0]) {
-    const audience = Array.from(
-      new Set([game.user?.id, ...activeGmIds()].filter(Boolean) as string[])
-    );
-    await showDicePrivately(rolls[0], audience);
-  }
+  const rollData =
+    descriptor?.diceSoNiceMode === "private" ? rolls[0]?.toJSON?.() ?? null : null;
 
   const context: FilteredRollContext = {
     request_id: post.requestId,
@@ -198,7 +195,8 @@ export async function handlePostRoll(
     formula: post.formula,
     timestamp: Date.now(),
     block_id: p.blockId,
-    filter_revision: p.filterRevision
+    filter_revision: p.filterRevision,
+    roll_data: rollData
   };
 
   // If we are the responsible GM, process locally; otherwise hand off by socket.
@@ -311,8 +309,15 @@ export async function processFilteredRoll(context: FilteredRollContext): Promise
         makeParticipant(context.actor_uuid, actorName, "accepted", context.total)
       );
       await incrementProcessed();
-      await markRequestProgress(context.user_id, context.roll_type, context.key);
+      await markRequestProgress(candidates, context.roll_type, context.key);
       return;
+    }
+
+    // Private dice animation (roller + GMs), except for a personal response:
+    // that player only ever learns that their answer is personal.
+    if (block.options.dice_so_nice_mode === "private" && !resolved.personal && context.roll_data) {
+      const audience = Array.from(new Set([context.user_id, ...activeGmIds()]));
+      await showDicePrivately(context.roll_data, audience, context.user_id);
     }
 
     await deliverResponse({
@@ -353,7 +358,7 @@ export async function processFilteredRoll(context: FilteredRollContext): Promise
     const processed = await incrementProcessed();
     await maybeAutoClose(block, processed);
     // Advance roll-request tracking; may auto-disable when all requests are done.
-    await markRequestProgress(context.user_id, context.roll_type, context.key);
+    await markRequestProgress(candidates, context.roll_type, context.key);
   } catch (error) {
     console.error("[veiled-rolls] processing failed", error);
     await failSafe(

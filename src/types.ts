@@ -156,6 +156,8 @@ export interface FilteredRollContext {
   timestamp: number;
   block_id: string;
   filter_revision: number;
+  /** Serialized Roll, sent only when the block animates dice privately. */
+  roll_data?: unknown;
 }
 
 /** The response chosen for a roll. */

@@ -87,7 +87,19 @@
       "EmptyStart": "Aucun jet préparé. Clique sur « Nouveau jet voilé » pour commencer.",
       "NoneDone": "Aucun jet fait pour l'instant.",
       "HistoryHint": "Conservé d'une session à l'autre ; visible du MJ uniquement.",
-      "NewSessionHint": "Remet tous les jets en « à faire » (l'historique est conservé)."
+      "NewSessionHint": "Remet tous les jets en « à faire » (l'historique est conservé).",
+      "InProgress": "En cours",
+      "Answered": "Ont répondu",
+      "HasRolled": "A lancé",
+      "NotRolled": "N'a pas encore lancé",
+      "Remind": "Relancer",
+      "RemindHint": "Renvoyer l'invite aux joueurs qui n'ont pas encore lancé",
+      "CloseRequest": "Clore",
+      "CloseRequestHint": "Ne plus attendre les retardataires (le jet passe en « Fait » si quelqu'un a répondu)",
+      "Filter": "Filtrer",
+      "FilterPlaceholder": "Filtrer par jet, scène, dossier ou joueur…",
+      "ToFix": "À corriger",
+      "EditScene": "Modifier la scène"
     },
     "Library": {
       "Title": "Jets voilés — Bibliothèque de blocs",
@@ -278,7 +290,9 @@
     },
     "Whisper": {
       "PlayerTitle": "Pour {actor}",
-      "YourResult": "Ton résultat : {total}"
+      "YourResult": "Ton résultat : {total}",
+      "Personal": "Ton résultat : personnel",
+      "PersonalHint": "Cette réponse t'est réservée : elle est vraie, quel que soit ton dé."
     },
     "Diag": {
       "Title": "Jet voilé — diagnostic MJ",
@@ -306,7 +320,8 @@
       "NeedActive": "Active d'abord un bloc pour demander un jet.",
       "ScopeAll": "tous",
       "Sent": "Demande envoyée : {roll} ({scope}).",
-      "AllDone": "Tous les jets demandés ont été faits : filtre désactivé."
+      "AllDone": "Tous les jets demandés ont été faits : filtre désactivé.",
+      "Reminded": "Relance envoyée : {roll} ({scope})."
     },
     "RollStatus": {
       "todo": "À faire",

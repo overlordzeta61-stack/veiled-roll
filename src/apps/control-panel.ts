@@ -4,8 +4,9 @@
  * The GM's main window. Prepared rolls are split into three views so what is
  * left to play never mixes with what has been played:
  *
- *  - **To do**: rolls not yet answered, requested ones pinned on top with the
- *    players still awaited; one click asks the whole group or chosen players.
+ *  - **To do**: an "in progress" block pinned on top (each requested roll with
+ *    who answered, who is awaited, remind / close), then the rolls left to
+ *    play grouped by folder and scene; one click asks the group or players.
  *  - **Done**: answered rolls with who rolled what, a re-request and a
  *    "back to to-do" action.
  *  - **History**: every processed roll, kept across sessions, with resend/copy.
@@ -22,9 +23,11 @@ import { clearHistory, getHistory } from "../services/history-service.js";
 import { clearDone, getDone, markDone, rollId, unmarkDone } from "../services/progress-service.js";
 import { resendHistory } from "../services/whisper-service.js";
 import {
+  closeRequest,
   connectedPlayers,
   outstandingSelectorIds,
-  outstandingUsers,
+  remindRoll,
+  requestProgress,
   requestRoll,
   resetRequests
 } from "../services/roll-request-service.js";
@@ -82,8 +85,10 @@ interface RollRow {
   label: string;
   valid: boolean;
   status: "todo" | "requested" | "done";
-  waiting: string;
+  typeLabel: string;
+  personal: Array<{ id: string; name: string }>;
   personalNames: string;
+  search: string;
   doneAt: string;
   results: Array<{ actorName: string; total: number; personal: boolean; preview: string }>;
 }
@@ -110,6 +115,8 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Current view. */
   private view: PanelView = "todo";
+  /** Text of the quick filter, kept across re-renders. */
+  private filter = "";
   /** Folder names the GM has collapsed, per view, to keep long lists readable. */
   private collapsedFolders = new Set<string>();
   /** Cache of history shown, for action handlers to read by id. */
@@ -166,6 +173,10 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
             personal: Boolean(h.personal),
             preview: plain(h.responseParagraphs.join(" "))
           }));
+        const label = s.label?.trim() || getKeyLabel(s.roll_type, s.key);
+        const personal = (branch?.personal_responses ?? [])
+          .filter((p) => p.user_id)
+          .map((p) => ({ id: p.user_id, name: userName(p.user_id) }));
         rows.push({
           id,
           blockId: block.id,
@@ -173,21 +184,23 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
           folder: block.folder?.trim() || noFolder,
           rollType: s.roll_type,
           key: s.key,
-          label: s.label?.trim() || getKeyLabel(s.roll_type, s.key),
+          label,
           valid,
           status,
-          waiting: requested ? outstandingUsers(s.roll_type, s.key).map(userName).join(", ") : "",
-          personalNames: (branch?.personal_responses ?? []).map((p) => userName(p.user_id)).join(", "),
+          typeLabel: game.i18n.localize(`VEILED_ROLLS.RollType.${s.roll_type}`),
+          personal,
+          personalNames: personal.map((p) => p.name).join(", "),
+          search: [label, block.name, block.folder, ...personal.map((p) => p.name)].join(" ").toLowerCase(),
           doneAt: doneAt !== undefined ? shortDateTime(doneAt) : "",
           results
         });
       }
     }
 
-    const todoRows = rows
-      .filter((r) => r.status !== "done")
-      // Requested rolls first: they are what the table is playing right now.
-      .sort((a, b) => Number(b.status === "requested") - Number(a.status === "requested"));
+    // Requested rolls are pinned in an "in progress" block of their own: they
+    // are what the table is playing right now. The rest is still to play.
+    const inProgress = rows.filter((r) => r.status === "requested").map((r) => this.progressCard(r));
+    const todoRows = rows.filter((r) => r.status === "todo");
     const doneRows = rows.filter((r) => r.status === "done");
 
     this.recent = history.slice(-HISTORY_VIEW_LIMIT).reverse();
@@ -196,7 +209,7 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       view: this.view,
       views: [
-        { id: "todo", label: "VEILED_ROLLS.Panel.ViewTodo", count: todoRows.length, icon: "fa-list-check" },
+        { id: "todo", label: "VEILED_ROLLS.Panel.ViewTodo", count: todoRows.length + inProgress.length, icon: "fa-list-check" },
         { id: "done", label: "VEILED_ROLLS.Panel.ViewDone", count: doneRows.length, icon: "fa-circle-check" },
         { id: "history", label: "VEILED_ROLLS.Panel.ViewHistory", count: history.length, icon: "fa-clock-rotate-left" }
       ].map((v) => ({ ...v, current: v.id === this.view })),
@@ -204,6 +217,9 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
       isDone: this.view === "done",
       isHistory: this.view === "history",
       folders: this.groupByFolder(this.view === "done" ? doneRows : todoRows),
+      inProgress,
+      showFilter: (this.view === "done" ? doneRows : todoRows).length > 6,
+      filter: this.filter,
       hasBlocks: this.blocks.length > 0,
       hasPlayers: players.length > 0,
       connected: players.map((p) => p.name).join(", "),
@@ -234,27 +250,59 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
-  /** Group rows by folder, sorted by folder name, with progress counts. */
+  /** A requested roll with who answered and who is still awaited. */
+  private progressCard(row: RollRow): AnyObject {
+    const progress = requestProgress(row.rollType, row.key) ?? { expected: [], waiting: [] };
+    const waiting = new Set(progress.waiting);
+    const personal = new Set(row.personal.map((p) => p.id));
+    const players = progress.expected.map((id) => ({
+      name: userName(id),
+      answered: !waiting.has(id),
+      personal: personal.has(id)
+    }));
+    const answered = players.filter((p) => p.answered).length;
+    return {
+      ...row,
+      players,
+      answered,
+      expected: players.length,
+      percent: players.length ? Math.round((answered / players.length) * 100) : 0,
+      canRemind: waiting.size > 0
+    };
+  }
+
+  /**
+   * Group rows by folder, then by scene, so a scene's name and edit button
+   * appear once above its rolls instead of on every row.
+   */
   private groupByFolder(rows: RollRow[]): AnyObject[] {
-    const groups = new Map<string, RollRow[]>();
+    const folders = new Map<string, Map<string, RollRow[]>>();
     for (const row of rows) {
-      const list = groups.get(row.folder) ?? [];
+      const scenes = folders.get(row.folder) ?? new Map<string, RollRow[]>();
+      const list = scenes.get(row.blockId) ?? [];
       list.push(row);
-      groups.set(row.folder, list);
+      scenes.set(row.blockId, list);
+      folders.set(row.folder, scenes);
     }
-    return [...groups.entries()]
+    return [...folders.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([name, list]) => ({
+      .map(([name, scenes]) => ({
         name,
         collapsed: this.collapsedFolders.has(`${this.view}|${name}`),
-        count: list.length,
-        rolls: list.map((r) => ({
-          ...r,
-          isTodo: r.status === "todo",
-          isRequested: r.status === "requested",
-          isDone: r.status === "done",
-          statusLabel: game.i18n.localize(`VEILED_ROLLS.RollStatus.${r.status}`)
-        }))
+        count: [...scenes.values()].reduce((n, list) => n + list.length, 0),
+        scenes: [...scenes.values()]
+          .sort((a, b) => a[0].blockName.localeCompare(b[0].blockName))
+          .map((list) => ({
+            blockId: list[0].blockId,
+            name: list[0].blockName,
+            valid: list[0].valid,
+            search: list.map((r) => r.search).join(" "),
+            rolls: list.map((r) => ({
+              ...r,
+              isDone: r.status === "done",
+              statusLabel: game.i18n.localize(`VEILED_ROLLS.RollStatus.${r.status}`)
+            }))
+          }))
       }));
   }
 
@@ -266,8 +314,18 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   _onRender(_context: AnyObject, _options: AnyObject): void {
     const root = this.element as HTMLElement | null;
-    if (!root?.addEventListener || root.dataset.vrBound === "1") return;
+    if (!root?.addEventListener) return;
+    this.applyFilter();
+    if (root.dataset.vrBound === "1") return;
     root.dataset.vrBound = "1";
+    // Filtering hides rendered rows instead of re-rendering, so the field keeps
+    // its focus while the GM types.
+    root.addEventListener("input", (event: Event) => {
+      const el = event.target as HTMLInputElement;
+      if (el?.dataset?.vrFilter === undefined) return;
+      this.filter = el.value;
+      this.applyFilter();
+    });
     root.addEventListener("click", (event: Event) => {
       const button = (event.target as HTMLElement)?.closest?.<HTMLElement>("[data-vr-action]");
       if (!button || !root.contains(button)) return;
@@ -276,6 +334,20 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
         console.error("[veiled-rolls] panel action failed", error);
       });
     });
+  }
+
+  /** Hide the rolls (and emptied scenes/folders) that do not match the filter. */
+  private applyFilter(): void {
+    const root = this.element as HTMLElement | null;
+    if (!root?.querySelectorAll) return;
+    const q = this.filter.trim().toLowerCase();
+    for (const el of root.querySelectorAll<HTMLElement>("[data-search]")) {
+      el.hidden = q.length > 0 && !(el.dataset.search ?? "").includes(q);
+    }
+    for (const folder of root.querySelectorAll<HTMLElement>(".veiled-rolls-folder")) {
+      const scenes = folder.querySelectorAll<HTMLElement>(".vr-scene");
+      folder.hidden = scenes.length > 0 && [...scenes].every((el) => el.hidden);
+    }
   }
 
   /** Route a delegated click to its handler. */
@@ -287,6 +359,7 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
     switch (action) {
       case "view":
         this.view = (data.view as PanelView) ?? "todo";
+        this.filter = "";
         break;
       case "folder": {
         const id = `${this.view}|${data.folder ?? ""}`;
@@ -303,6 +376,12 @@ export class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
           if (!picked) return;
           await this.request(blockId, rollType, key, picked);
         }
+        break;
+      case "remind":
+        if (rollType) remindRoll(rollType, key);
+        return;
+      case "closeRequest":
+        if (rollType) await closeRequest(rollType, key);
         break;
       case "markDone":
         if (rollType) await markDone(blockId, rollType, key);

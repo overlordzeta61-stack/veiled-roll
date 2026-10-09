@@ -2,7 +2,7 @@
   "id": "veiled-rolls",
   "title": "Jets voilés",
   "description": "Permet au MJ de voiler certains jets (compétence, caractéristique, sauvegarde) : le jet est calculé normalement par D&D5e mais son résultat reste caché, et une réponse narrative préparée est chuchotée au joueur selon son total — ou une réponse personnelle réservée à un joueur précis.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "compatibility": {
     "minimum": "13",
     "verified": "13"

@@ -175,21 +175,28 @@ export function isDiceSoNiceActive(): boolean {
  * Show a roll's 3D dice animation privately, to the given users only.
  *
  * Because the veiled roll never creates a public chat card, Dice So Nice would
- * otherwise not animate at all. This drives it directly so the roller (and GMs)
- * get the animation while the rest of the table sees nothing. Best-effort: any
- * failure is swallowed so it can never break the roll.
- * @param roll The evaluated Roll instance.
+ * otherwise not animate at all. The responsible GM drives it directly once the
+ * response is resolved, so the roller (and GMs) get the animation while the
+ * rest of the table sees nothing. Best-effort: any failure is swallowed so it
+ * can never break the roll.
+ * @param rollData The roll as serialized by `Roll#toJSON` on the rolling client.
  * @param whisperUserIds Users allowed to see the animation.
+ * @param rollerId The user who rolled (their dice appearance is used).
  */
 export async function showDicePrivately(
-  roll: AnyObject,
-  whisperUserIds: string[]
+  rollData: unknown,
+  whisperUserIds: string[],
+  rollerId: string
 ): Promise<void> {
   const dice3d = (game as AnyObject).dice3d;
   if (!dice3d?.showForRoll) return;
   try {
+    const RollClass = CONFIG?.Dice?.rolls?.[0] ?? (globalThis as AnyObject).Roll;
+    const roll = RollClass?.fromData?.(rollData);
+    if (!roll) return;
+    const roller = game.users?.get(rollerId) ?? game.user;
     // Signature: showForRoll(roll, user, synchronize, users, blind, messageID, speaker)
-    await dice3d.showForRoll(roll, game.user, true, whisperUserIds, false, null, null);
+    await dice3d.showForRoll(roll, roller, true, whisperUserIds, false, null, null);
   } catch (error) {
     console.warn("[veiled-rolls] Dice So Nice private animation failed", error);
   }

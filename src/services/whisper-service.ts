@@ -61,6 +61,12 @@ function buildPlayerContent(
   // Responses were sanitized on save/import, so they may contain safe markup.
   const body = resolved.paragraphs.map((p) => `<p>${p}</p>`).join("");
 
+  // A personal response never shows the die result: a poor roll would make the
+  // player doubt an answer that is reliable by design. "Personal" replaces it.
+  if (resolved.personal) {
+    return `<div class="veiled-rolls-whisper is-personal"><p class="veiled-rolls-whisper-title">${title}</p>${body}${personalBadge()}</div>`;
+  }
+
   let total = "";
   if (block.options.show_result_to_player) {
     const natural =
@@ -74,6 +80,11 @@ function buildPlayerContent(
 
   const tone = block.options.color_by_tier ? toneClass(resolved.tone) : "";
   return `<div class="veiled-rolls-whisper${tone}"><p class="veiled-rolls-whisper-title">${title}</p>${body}${total}</div>`;
+}
+
+/** The marker shown to a player instead of their result on a personal response. */
+function personalBadge(): string {
+  return `<p class="veiled-rolls-whisper-total veiled-rolls-whisper-personal">${t("Whisper.Personal")}</p><p class="veiled-rolls-whisper-personal-hint">${t("Whisper.PersonalHint")}</p>`;
 }
 
 /** Build the GM-only diagnostic HTML with the hidden technical details. */
@@ -207,6 +218,7 @@ export async function resendHistory(entry: {
   actorName: string;
   responseParagraphs: string[];
   blockId: string;
+  personal?: boolean;
 }): Promise<void> {
   const actor = (await fromUuid(entry.actorUuid)) as AnyObject | null;
   const recipients = Array.from(new Set([...ownerUserIds(actor), ...activeGmIds()]));
@@ -214,7 +226,9 @@ export async function resendHistory(entry: {
   const title = t("Whisper.PlayerTitle", { actor: escapeText(entry.actorName) });
   await ChatMessage.create({
     speaker: speakerFor(actor, entry.actorName),
-    content: `<div class="veiled-rolls-whisper"><p class="veiled-rolls-whisper-title">${title}</p>${body}</div>`,
+    content: entry.personal
+      ? `<div class="veiled-rolls-whisper is-personal"><p class="veiled-rolls-whisper-title">${title}</p>${body}${personalBadge()}</div>`
+      : `<div class="veiled-rolls-whisper"><p class="veiled-rolls-whisper-title">${title}</p>${body}</div>`,
     whisper: recipients,
     flags: { [FLAG_SCOPE]: { kind: "resend", blockId: entry.blockId } }
   });

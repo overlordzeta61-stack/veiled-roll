@@ -30,11 +30,13 @@ Dans le panneau, cliquer sur **Nouveau jet voilé**. Tout tient sur une page, de
 Une réponse personnelle associe **un joueur** à **un texte**. Quand ce joueur fait le jet :
 
 - il reçoit ce texte **d'office**, quel que soit son total (même sur un 1) ;
-- tous les autres joueurs reçoivent normalement la réponse de leur palier ;
 - il lance son dé comme tout le monde, donc rien ne trahit à la table qu'il a reçu un traitement particulier ;
+- **il ne voit pas son résultat** : à la place du total, son chuchotement affiche « ✦ Ton résultat : personnel — Cette réponse t'est réservée : elle est vraie, quel que soit ton dé ». Un mauvais jet ne peut donc pas le faire douter de son intuition. Si les dés 3D privés sont activés, l'animation n'est pas jouée pour lui (la face du dé trahirait le résultat) ;
+- tous les autres joueurs reçoivent normalement la réponse de leur palier (avec leur total, si l'option est active) ;
+- le MJ voit toujours le vrai total : diagnostic privé, panneau et historique ;
 - la réponse le suit aussi lorsque le MJ lance le jet à sa place, sur un personnage dont il est propriétaire.
 
-Un jet peut ne comporter **que** des réponses personnelles. Les autres joueurs reçoivent alors la réponse par défaut, si elle est configurée. Dans le panneau, une icône d'espion signale les jets qui en contiennent, avec le nom des joueurs concernés au survol. Le sélecteur de joueurs reprend cette icône, et l'historique marque ces réponses d'une étiquette « Personnelle ».
+Un jet peut ne comporter **que** des réponses personnelles. Les autres joueurs reçoivent alors la réponse par défaut, si elle est configurée. Dans le panneau, les joueurs concernés apparaissent en étiquettes violettes sous le jet. Le sélecteur de joueurs et la zone « En cours » les signalent par une icône d'espion, et l'historique marque ces réponses d'une étiquette « Personnelle ».
 
 ### 3. Demander le jet : au groupe ou à certains joueurs
 
@@ -51,11 +53,18 @@ Le panneau est découpé en trois onglets, chacun avec un compteur :
 
 | Onglet | Contenu |
 |---|---|
-| **À faire** | Jets pas encore joués, regroupés par dossier (repliables). Les jets **demandés** remontent en tête, surlignés en vert-de-gris, avec la liste des joueurs **encore attendus** (« En attente : Bob »). Un bouton ✓ marque un jet comme fait à la main. |
+| **À faire** | En haut, la zone **En cours** (voir ci-dessous). En dessous, les jets à jouer, regroupés par **dossier** (repliable) puis par **scène** : le nom de la scène et son bouton ✎ n'apparaissent qu'une fois. Chaque jet montre son type et, en étiquettes violettes, les joueurs qui ont une réponse personnelle. Un bouton ✓ le marque fait à la main. Au-delà de six jets, un **filtre** instantané (jet, scène, dossier, joueur) apparaît. |
 | **Faits** | Jets joués (liseré laiton), avec leur date et, pour chacun, **qui a lancé, son total et un aperçu de la réponse reçue**. On peut le redemander, ou le **remettre à faire** (↺). |
 | **Historique** | Tous les jets traités, du plus récent au plus ancien : acteur, joueur, jet, total (visible du MJ seul), réponse, et étiquette « Personnelle » ou « Réponse par défaut » le cas échéant. Actions **Renvoyer** et **Copier**. |
 
-Un jet passe en « Fait » dès la première réponse envoyée. Quand tous les joueurs attendus ont répondu, le filtre se désactive de lui-même.
+**La zone « En cours »** regroupe les jets demandés et pas encore terminés. Pour chacun, elle affiche :
+
+- une barre de progression et un compteur (« 1/2 ») ;
+- une pastille par joueur : ✓ s'il a lancé, ⌛ s'il est attendu, et l'icône d'espion s'il a une réponse personnelle ;
+- **Relancer**, qui renvoie l'invite aux seuls retardataires sans perdre les réponses déjà reçues ;
+- **Clore**, qui arrête d'attendre : le jet passe en « Fait » si quelqu'un a répondu, sinon il revient « à faire ».
+
+Un jet passe en « Fait » dès la première réponse envoyée. Quand tous les joueurs attendus ont répondu (ou que la dernière demande est close), le filtre se désactive de lui-même. Si le MJ lance à la place d'un joueur, sur son personnage, ce joueur est compté comme ayant répondu.
 
 **Nouvelle session** désactive le filtre et remet tous les jets en « À faire ». **L'historique est conservé** : il ne s'efface que par le bouton « Vider l'historique » de l'onglet Historique, et sa taille est plafonnée par un réglage du module.
 
@@ -80,8 +89,8 @@ La **Bibliothèque** liste toutes les scènes préparées, avec une recherche in
 
 - saisie dans l'éditeur une page, ajout et suppression de cartes, de paliers et de réponses personnelles ;
 - conservation de la saisie entre deux rendus, testeur intégré, enregistrement ;
-- demande au groupe et liste des joueurs attendus ;
-- traitement des jets (réponse de palier pour Bob, réponse personnelle pour Alice même sur 25, et aussi quand le MJ lance pour elle) ;
+- demande au groupe, zone « En cours » (progression, joueurs attendus, Relancer, Clore) ;
+- traitement des jets : réponse de palier pour Bob, réponse personnelle pour Alice même sur 25 (avec « personnel » à la place de son total), et aussi quand le MJ lance pour elle ;
 - passage en « Fait », désactivation automatique, retour en « À faire » sans perte d'historique.
 
 Ce banc d'essai ne fait pas partie du dépôt.
@@ -90,7 +99,7 @@ Ce banc d'essai ne fait pas partie du dépôt.
 
 - l'interception effective des hooks D&D5e 5.x ;
 - le routage joueur → MJ par socket en multijoueur ;
-- Dice So Nice ;
+- Dice So Nice (l'animation privée est maintenant déclenchée par le MJ, à partir du jet sérialisé) ;
 - le rendu exact sous ApplicationV2 de Foundry v13 ;
 - le déclenchement automatique du jet demandé.
 
@@ -118,7 +127,9 @@ Foundry diffuse **tout réglage de portée `world` à tous les clients**. Pour q
 
 Le client qui lance le jet effectue l'interception : masquage de la carte et marquage du jet. Le résultat est transmis par socket au **seul MJ responsable**, élu de façon déterministe via `game.users.activeGM`, avec un repli. Lui seul résout la réponse (paliers ou réponse personnelle) et l'envoie. Les identifiants de requête sont dédupliqués. Le principe est le **fail-safe** : en cas d'erreur, le joueur reçoit toujours une note et le MJ est notifié.
 
-Pour une réponse personnelle, le MJ cherche d'abord l'utilisateur qui a lancé le jet, puis les propriétaires du personnage. Le chuchotement part vers le lanceur (et vers les MJ si l'option est active). Un message de diagnostic séparé, réservé aux MJ, indique le total et « Réponse personnelle ».
+Pour une réponse personnelle, le MJ cherche d'abord l'utilisateur qui a lancé le jet, puis les propriétaires du personnage. Le chuchotement part vers le lanceur (et vers les MJ si l'option est active) et affiche « personnel » au lieu du total. Un message de diagnostic séparé, réservé aux MJ, indique le vrai total et « Réponse personnelle ».
+
+Avec les dés 3D privés, le client du joueur joint son jet sérialisé (`Roll#toJSON`) au contexte transmis. Le MJ responsable joue l'animation (lanceur + MJ) une fois la réponse résolue, puis envoie le chuchotement. Pour une réponse personnelle, il n'y a pas d'animation.
 
 ### Format des données
 
@@ -132,8 +143,10 @@ Les identifiants de joueurs étant propres à chaque monde, les réponses person
 
 Le module n'est pas encore publié via un manifeste. Il s'installe manuellement :
 
-1. Copier dans `Data/modules/veiled-rolls/` les fichiers `module.json`, `dist/`, `lang/`, `styles/` et `templates/`. Le dossier `dist/` est versionné : aucune compilation n'est nécessaire.
-2. Activer le module dans un monde utilisant le système D&D5e.
+1. Décompresser `veiled-rolls.zip` dans le dossier `Data/modules/` de Foundry. On obtient `Data/modules/veiled-rolls/module.json`.
+2. Redémarrer Foundry (ou revenir à l'écran de configuration), puis activer « Jets voilés » dans un monde utilisant le système D&D5e.
+
+Le zip se fabrique avec `npm run package` (résultat : `build/veiled-rolls.zip`). Sans outils, on peut aussi copier à la main `module.json`, `dist/`, `lang/`, `styles/` et `templates/` dans `Data/modules/veiled-rolls/` : le dossier `dist/` est versionné, aucune compilation n'est nécessaire.
 
 ## Développement
 
@@ -145,6 +158,7 @@ npm run typecheck   # TypeScript strict
 npm test            # Vitest
 npm run build       # régénère dist/module.js
 npm run check       # les trois à la suite
+npm run package     # build/veiled-rolls.zip prêt à installer
 ```
 
 Après toute modification de `src/`, relancer `npm run build` et committer `dist/` avec le reste.
