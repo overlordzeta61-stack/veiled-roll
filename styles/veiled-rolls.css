@@ -1,0 +1,772 @@
+/*
+ * Veiled Rolls styles.
+ * All rules are scoped under .veiled-rolls to avoid leaking into Foundry or
+ * other modules. Foundry CSS variables are used where possible so the module
+ * inherits the active (light/dark) theme instead of imposing its own palette.
+ */
+
+.veiled-rolls .veiled-rolls-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  max-height: 100%;
+  overflow: auto;
+}
+
+/*
+ * In a scrolling flex column, children shrink below their natural height by
+ * default, which made sections overlap once the form grew. Pinning the basis
+ * keeps every section at its content height and lets the root scroll instead.
+ */
+.veiled-rolls .veiled-rolls-root > * {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.veiled-rolls h2,
+.veiled-rolls h3 {
+  margin: 0;
+  font-size: var(--font-size-16, 1rem);
+  border: none;
+}
+
+.veiled-rolls .veiled-rolls-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.veiled-rolls .veiled-rolls-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: var(--font-size-12, 0.8rem);
+  border: 1px solid var(--color-border-light-tertiary, #7a7971);
+}
+
+.veiled-rolls .veiled-rolls-badge.is-active {
+  background: rgba(60, 160, 90, 0.18);
+  border-color: rgba(60, 160, 90, 0.6);
+}
+
+.veiled-rolls .veiled-rolls-badge.is-idle {
+  opacity: 0.8;
+}
+
+.veiled-rolls .veiled-rolls-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.veiled-rolls .veiled-rolls-fields > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dotted var(--color-border-light-tertiary, #999);
+}
+
+.veiled-rolls .veiled-rolls-fields dt {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.veiled-rolls .veiled-rolls-fields dd {
+  margin: 0;
+  text-align: right;
+}
+
+.veiled-rolls .veiled-rolls-actions,
+.veiled-rolls .veiled-rolls-toolbar-actions,
+.veiled-rolls .veiled-rolls-history-actions,
+.veiled-rolls .veiled-rolls-editor-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.veiled-rolls .veiled-rolls-editor-footer {
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg, rgba(0, 0, 0, 0.02));
+  padding-top: 0.5rem;
+}
+
+.veiled-rolls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.veiled-rolls .veiled-rolls-primary {
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-stop,
+.veiled-rolls .veiled-rolls-danger {
+  border-color: rgba(190, 60, 60, 0.7);
+  color: var(--color-text-hyperlink, #b03030);
+}
+
+.veiled-rolls .veiled-rolls-stop:not(:disabled):hover,
+.veiled-rolls .veiled-rolls-danger:not(:disabled):hover {
+  background: rgba(190, 60, 60, 0.15);
+}
+
+.veiled-rolls .veiled-rolls-link {
+  background: none;
+  border: none;
+  padding: 0.1rem 0.25rem;
+  width: auto;
+  cursor: pointer;
+  color: var(--color-text-hyperlink, #7a4fb0);
+}
+
+.veiled-rolls .veiled-rolls-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  justify-content: center;
+}
+
+.veiled-rolls .veiled-rolls-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-13, 0.85rem);
+}
+
+.veiled-rolls .veiled-rolls-table th,
+.veiled-rolls .veiled-rolls-table td {
+  text-align: left;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid var(--color-border-light-tertiary, #ccc);
+}
+
+.veiled-rolls .veiled-rolls-row-actions {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: flex-end;
+}
+
+.veiled-rolls .veiled-rolls-col-actions {
+  text-align: right;
+}
+
+.veiled-rolls .veiled-rolls-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.4rem;
+  border: 1px solid transparent;
+  font-size: var(--font-size-12, 0.75rem);
+}
+
+.veiled-rolls .veiled-rolls-status::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.veiled-rolls .status-accepted { color: #2e8b57; }
+.veiled-rolls .status-duplicate { color: #b8860b; }
+.veiled-rolls .status-ignored { color: #777; }
+.veiled-rolls .status-error { color: #b03030; }
+
+.veiled-rolls .veiled-rolls-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding: 0 0.3rem;
+  border-radius: 0.3rem;
+  background: rgba(120, 120, 120, 0.18);
+}
+
+.veiled-rolls .veiled-rolls-muted { opacity: 0.7; }
+
+.veiled-rolls .veiled-rolls-empty {
+  opacity: 0.7;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.veiled-rolls .veiled-rolls-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-history-entry {
+  border: 1px solid var(--color-border-light-tertiary, #ccc);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.5rem;
+}
+
+.veiled-rolls .veiled-rolls-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--font-size-12, 0.8rem);
+}
+
+.veiled-rolls .veiled-rolls-history-response {
+  margin: 0.3rem 0;
+}
+
+/* Toolbar / search */
+.veiled-rolls .veiled-rolls-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.veiled-rolls .veiled-rolls-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 220px;
+}
+
+.veiled-rolls .veiled-rolls-search input { flex: 1; }
+
+/* Editor */
+.veiled-rolls .veiled-rolls-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border-light-tertiary, #ccc);
+}
+
+.veiled-rolls .veiled-rolls-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 0.4rem 0.4rem 0 0;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.veiled-rolls .veiled-rolls-tab.is-active {
+  border-color: var(--color-border-light-tertiary, #ccc);
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-tab-body {
+  min-height: 12rem;
+  flex: 0 0 auto;
+}
+
+.veiled-rolls .veiled-rolls-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.veiled-rolls .veiled-rolls-full { grid-column: 1 / -1; }
+
+.veiled-rolls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: var(--font-size-13, 0.85rem);
+}
+
+.veiled-rolls .veiled-rolls-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-row-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+  border: 1px solid var(--color-border-light-tertiary, #ddd);
+  border-radius: 0.4rem;
+  padding: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-branch {
+  border: 1px solid var(--color-border-light-tertiary, #ccc);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.veiled-rolls .veiled-rolls-tier {
+  border-top: 1px dashed var(--color-border-light-tertiary, #ccc);
+  padding-top: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-test {
+  border-top: 1px solid var(--color-border-light-tertiary, #ccc);
+  padding-top: 0.5rem;
+}
+
+.veiled-rolls .veiled-rolls-test-result {
+  margin-top: 0.4rem;
+  padding: 0.4rem;
+  border-radius: 0.4rem;
+  background: rgba(120, 120, 120, 0.12);
+}
+
+.veiled-rolls .veiled-rolls-errors {
+  border: 1px solid rgba(190, 60, 60, 0.6);
+  background: rgba(190, 60, 60, 0.12);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.veiled-rolls .veiled-rolls-warn { color: #b8860b; }
+
+.veiled-rolls .veiled-rolls-sr-only,
+.veiled-rolls .veiled-rolls-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Whisper card (player-facing) */
+.veiled-rolls-whisper .veiled-rolls-whisper-title {
+  font-weight: 600;
+  opacity: 0.85;
+  margin: 0 0 0.25rem;
+}
+
+.veiled-rolls-diag .veiled-rolls-diag-title {
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.veiled-rolls-diag ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+/*
+ * Hotbar access button. Injected into Foundry's hotbar, so it lives outside the
+ * .veiled-rolls scope; the class name is prefixed to keep it self-contained.
+ */
+.veiled-rolls-hotbar-button {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  width: 2.2rem;
+  height: 2.2rem;
+  margin: 0 0.35rem 0.2rem 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid var(--color-border-dark, #000);
+  border-radius: 0.3rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-text-light-highlight, #f0f0e0);
+}
+
+.veiled-rolls-hotbar-button:hover {
+  border-color: var(--color-shadow-primary, #ff6400);
+}
+
+.veiled-rolls-hotbar-button.is-active {
+  border-color: rgba(60, 200, 110, 0.9);
+  box-shadow: 0 0 6px rgba(60, 200, 110, 0.6);
+}
+
+/* Block list inside the control panel: activate/disable without leaving it. */
+.veiled-rolls .veiled-rolls-block-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.veiled-rolls .veiled-rolls-block-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border-light-tertiary, #ccc);
+  border-radius: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-block-row.is-active {
+  border-color: rgba(60, 160, 90, 0.7);
+  background: rgba(60, 160, 90, 0.1);
+}
+
+.veiled-rolls .veiled-rolls-block-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.veiled-rolls .veiled-rolls-block-name {
+  font-weight: 600;
+}
+
+/* Pill buttons mirroring the state badge: green to start, red to stop. */
+.veiled-rolls .veiled-rolls-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 0.9rem;
+  font-size: var(--font-size-12, 0.8rem);
+  cursor: pointer;
+}
+
+.veiled-rolls .veiled-rolls-pill.is-go {
+  border: 1px solid rgba(60, 160, 90, 0.7);
+  color: #2e8b57;
+}
+
+.veiled-rolls .veiled-rolls-pill.is-go:not(:disabled):hover {
+  background: rgba(60, 160, 90, 0.18);
+}
+
+.veiled-rolls .veiled-rolls-pill.is-stop {
+  border: 1px solid rgba(190, 60, 60, 0.8);
+  color: #c0392b;
+}
+
+.veiled-rolls .veiled-rolls-pill.is-stop:hover {
+  background: rgba(190, 60, 60, 0.18);
+}
+
+.veiled-rolls .veiled-rolls-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * Player whisper: the roller's own total and an optional success tint.
+ * The card is only ever whispered to the roller and GMs, so this never exposes
+ * the number to the rest of the table. Colours use a translucent left border and
+ * a faint wash so they stay legible on both light and dark chat themes.
+ */
+.veiled-rolls-whisper .veiled-rolls-whisper-total {
+  margin: 0.4rem 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.veiled-rolls-whisper[class*="tone-"] {
+  border-left: 3px solid transparent;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.3rem;
+}
+
+.veiled-rolls-whisper.tone-1 { border-left-color: #c0392b; background: rgba(192, 57, 43, 0.14); }
+.veiled-rolls-whisper.tone-2 { border-left-color: #d97b25; background: rgba(217, 123, 37, 0.14); }
+.veiled-rolls-whisper.tone-3 { border-left-color: #c9a227; background: rgba(201, 162, 39, 0.14); }
+.veiled-rolls-whisper.tone-4 { border-left-color: #7fae3a; background: rgba(127, 174, 58, 0.14); }
+.veiled-rolls-whisper.tone-5 { border-left-color: #2e8b57; background: rgba(46, 139, 87, 0.16); }
+
+/* Roll-request section: target chips and per-selector request buttons. */
+.veiled-rolls .veiled-rolls-request-hint {
+  margin: 0 0 0.3rem;
+}
+
+.veiled-rolls .veiled-rolls-target-chips,
+.veiled-rolls .veiled-rolls-request-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.veiled-rolls .veiled-rolls-request-buttons {
+  margin-top: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-request-scope {
+  margin: 0.3rem 0 0;
+  font-size: var(--font-size-11, 0.7rem);
+}
+
+.veiled-rolls .veiled-rolls-chip {
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--color-border-light-tertiary, #ccc);
+  background: transparent;
+  cursor: pointer;
+}
+
+.veiled-rolls .veiled-rolls-chip.is-on {
+  border-color: rgba(90, 130, 200, 0.9);
+  background: rgba(90, 130, 200, 0.18);
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-pill.is-request {
+  border: 1px solid var(--color-border-light-primary, #888);
+}
+
+.veiled-rolls .veiled-rolls-pill.is-request:hover {
+  border-color: rgba(90, 130, 200, 0.9);
+  background: rgba(90, 130, 200, 0.14);
+}
+
+/* Compact status bar replacing the former filter-state block. */
+.veiled-rolls .veiled-rolls-statusbar-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.veiled-rolls .veiled-rolls-statusbar-name {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.veiled-rolls .veiled-rolls-statusbar-actions {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+/* Request-centric layout: one row per roll, group + per-player buttons. */
+.veiled-rolls .veiled-rolls-request-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-request-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--color-border-light-tertiary, #ccc);
+  border-radius: 0.4rem;
+}
+
+.veiled-rolls .veiled-rolls-request-roll {
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-request-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.veiled-rolls .veiled-rolls-pill.is-group {
+  border: 1px solid rgba(90, 130, 200, 0.9);
+  background: rgba(90, 130, 200, 0.16);
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-pill.is-group:hover {
+  background: rgba(90, 130, 200, 0.28);
+}
+
+/* ---------------------------------------------------------------------- */
+/*  Scriptorium-aligned design tokens and components                       */
+/*  Mirrors Campaign Scriptorium's palette so the two modules feel like    */
+/*  one family: vellum text, verdigris accent, brass for "done", rust for  */
+/*  danger, deliberately subtle 4px corners.                               */
+/* ---------------------------------------------------------------------- */
+.veiled-rolls {
+  --vr-slate-900: #14161c;
+  --vr-slate-800: #1b1e26;
+  --vr-slate-700: #242833;
+  --vr-slate-600: #333846;
+  --vr-vellum: #ded5c0;
+  --vr-vellum-dim: #9a9484;
+  --vr-verdigris: #6fae9d;
+  --vr-verdigris-deep: #3d6b60;
+  --vr-brass: #c9a227;
+  --vr-rust: #a34a3f;
+  --vr-radius: 4px;
+}
+
+.theme-light .veiled-rolls,
+.veiled-rolls.theme-light {
+  --vr-slate-900: #ece7db;
+  --vr-slate-800: #f4f0e6;
+  --vr-slate-700: #ffffff;
+  --vr-slate-600: #cdc5b4;
+  --vr-vellum: #23252c;
+  --vr-vellum-dim: #5f5a4f;
+  --vr-verdigris-deep: #2c5148;
+}
+
+.veiled-rolls .veiled-rolls-root { color: var(--vr-vellum); }
+.veiled-rolls h2,
+.veiled-rolls h3 { color: var(--vr-verdigris); }
+.veiled-rolls .veiled-rolls-muted { color: var(--vr-vellum-dim); opacity: 1; }
+
+/* Cards (blocks list) — Scriptorium's cc-card look. */
+.veiled-rolls .cc-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--vr-slate-700);
+  border: 1px solid transparent;
+  border-radius: var(--vr-radius);
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.veiled-rolls .cc-card:hover { border-color: var(--vr-verdigris-deep); transform: translateX(2px); }
+.veiled-rolls .cc-card.is-active { border-color: var(--vr-verdigris); background: var(--vr-slate-800); }
+.veiled-rolls .cc-card:focus-visible { outline: 2px solid var(--vr-verdigris); outline-offset: 1px; }
+
+/* Chips (request buttons) — Scriptorium's cc-chip look. */
+.veiled-rolls .cc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--vr-slate-700);
+  border: 1px solid var(--vr-slate-600);
+  border-radius: 999px;
+  color: var(--vr-vellum-dim);
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.veiled-rolls .cc-chip:hover { border-color: var(--vr-verdigris); color: var(--vr-vellum); }
+.veiled-rolls .cc-chip--primary { background: var(--vr-verdigris-deep); border-color: var(--vr-verdigris); color: var(--vr-vellum); }
+.veiled-rolls .cc-chip--primary:hover { filter: brightness(1.1); }
+
+/* Status tags — cc-tag with active (verdigris) / done (brass) / todo (dim). */
+.veiled-rolls .cc-tag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vr-vellum-dim);
+}
+
+.veiled-rolls .cc-tag--soft { border: 1px solid var(--vr-slate-600); }
+.veiled-rolls .cc-tag--requested,
+.veiled-rolls .cc-tag--active { color: var(--vr-verdigris); border-color: var(--vr-verdigris-deep); }
+.veiled-rolls .cc-tag--done { color: var(--vr-brass); border-color: var(--vr-brass); }
+
+/* Request rows: head line (label + status), dim once done. */
+.veiled-rolls .veiled-rolls-request-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.veiled-rolls .veiled-rolls-request-row.is-done { opacity: 0.6; }
+.veiled-rolls .veiled-rolls-request-row.is-requested { border-color: var(--vr-verdigris-deep); }
+
+/* Prepared-rolls list: folder groups and per-roll status colouring. */
+.veiled-rolls .veiled-rolls-folder { margin-bottom: 0.4rem; }
+
+.veiled-rolls .veiled-rolls-folder-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--vr-slate-600);
+  padding: 0.25rem 0.1rem;
+  color: var(--vr-vellum);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-folder-head:hover { color: var(--vr-verdigris); }
+.veiled-rolls .veiled-rolls-folder-name { flex: 1; text-align: left; }
+
+.veiled-rolls .veiled-rolls-request-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.veiled-rolls .veiled-rolls-request-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem 0.55rem;
+  border-left: 3px solid var(--vr-slate-600);
+  cursor: default;
+}
+
+.veiled-rolls .veiled-rolls-request-row:hover { transform: none; }
+
+/* Colour change by status — the key readability signal. */
+.veiled-rolls .veiled-rolls-request-row.status-todo {
+  border-left-color: var(--vr-slate-600);
+}
+.veiled-rolls .veiled-rolls-request-row.status-requested {
+  border-left-color: var(--vr-verdigris);
+  background: color-mix(in srgb, var(--vr-verdigris) 10%, var(--vr-slate-700));
+}
+.veiled-rolls .veiled-rolls-request-row.status-done {
+  border-left-color: var(--vr-brass);
+  background: color-mix(in srgb, var(--vr-brass) 12%, var(--vr-slate-700));
+}
+.veiled-rolls .veiled-rolls-request-row.status-done .veiled-rolls-request-roll { color: var(--vr-vellum-dim); }
+
+.veiled-rolls .veiled-rolls-roll-block { font-weight: 400; font-size: 0.72rem; }
+.veiled-rolls .veiled-rolls-header-actions { display: inline-flex; gap: 0.6rem; }
+
+/* Single-line roll rows: label on the left, status + buttons on the right. */
+.veiled-rolls .veiled-rolls-request-row {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+}
+.veiled-rolls .veiled-rolls-request-row .veiled-rolls-request-roll { flex: 1 1 40%; min-width: 0; }
+.veiled-rolls .veiled-rolls-request-row .cc-tag { flex: 0 0 auto; }
+.veiled-rolls .veiled-rolls-request-row .veiled-rolls-request-scopes {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+/* Player picker dialog (rendered outside the .veiled-rolls scope). */
+.veiled-rolls-pick-list { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.25rem 0; }
+.veiled-rolls-pick { display: flex; align-items: center; gap: 0.45rem; cursor: pointer; }

@@ -1,0 +1,75 @@
+<div class="veiled-rolls-root">
+  <header class="veiled-rolls-toolbar">
+    <div class="veiled-rolls-search">
+      <label for="vr-search" class="veiled-rolls-sr-only">{{localize "VEILED_ROLLS.Library.Search"}}</label>
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input id="vr-search" type="search" name="search" data-action="search"
+             value="{{query}}" placeholder="{{localize "VEILED_ROLLS.Library.SearchPlaceholder"}}" />
+    </div>
+    <div class="veiled-rolls-toolbar-actions">
+      <button type="button" data-action="create">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Library.Create"}}
+      </button>
+      <button type="button" data-action="importBlocks">
+        <i class="fa-solid fa-file-import" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Library.Import"}}
+      </button>
+      <button type="button" data-action="exportAll">
+        <i class="fa-solid fa-file-export" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Library.ExportAll"}}
+      </button>
+    </div>
+  </header>
+
+  {{#if rows.length}}
+  <table class="veiled-rolls-table veiled-rolls-library-table">
+    <thead>
+      <tr>
+        <th scope="col">{{localize "VEILED_ROLLS.Library.Name"}}</th>
+        <th scope="col">{{localize "VEILED_ROLLS.Library.Folder"}}</th>
+        <th scope="col">{{localize "VEILED_ROLLS.Library.Rolls"}}</th>
+        <th scope="col">{{localize "VEILED_ROLLS.Library.Mode"}}</th>
+        <th scope="col">{{localize "VEILED_ROLLS.Library.Updated"}}</th>
+        <th scope="col" class="veiled-rolls-col-actions">{{localize "VEILED_ROLLS.Library.Actions"}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td>
+          {{#unless this.valid}}<i class="fa-solid fa-triangle-exclamation veiled-rolls-warn"
+            title="{{localize "VEILED_ROLLS.Library.HasError"}}" aria-label="{{localize "VEILED_ROLLS.Library.HasError"}}"></i> {{/unless}}
+          {{this.name}}
+        </td>
+        <td>{{this.folder}}</td>
+        <td>{{this.rolls}}</td>
+        <td>{{this.mode}}</td>
+        <td>{{this.updated}}</td>
+        <td class="veiled-rolls-row-actions">
+          <button type="button" class="veiled-rolls-icon" data-action="activate" data-id="{{this.id}}"
+                  title="{{localize "VEILED_ROLLS.Library.Activate"}}" aria-label="{{localize "VEILED_ROLLS.Library.Activate"}}">
+            <i class="fa-solid fa-play" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="veiled-rolls-icon" data-action="edit" data-id="{{this.id}}"
+                  title="{{localize "VEILED_ROLLS.Library.Edit"}}" aria-label="{{localize "VEILED_ROLLS.Library.Edit"}}">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="veiled-rolls-icon" data-action="duplicate" data-id="{{this.id}}"
+                  title="{{localize "VEILED_ROLLS.Library.Duplicate"}}" aria-label="{{localize "VEILED_ROLLS.Library.Duplicate"}}">
+            <i class="fa-solid fa-clone" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="veiled-rolls-icon" data-action="exportOne" data-id="{{this.id}}"
+                  title="{{localize "VEILED_ROLLS.Library.Export"}}" aria-label="{{localize "VEILED_ROLLS.Library.Export"}}">
+            <i class="fa-solid fa-download" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-action="remove" data-id="{{this.id}}"
+                  title="{{localize "VEILED_ROLLS.Library.Delete"}}" aria-label="{{localize "VEILED_ROLLS.Library.Delete"}}">
+            <i class="fa-solid fa-trash" aria-hidden="true"></i>
+          </button>
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="veiled-rolls-empty">{{localize "VEILED_ROLLS.Library.Empty"}}</p>
+  {{/if}}
+</div>
