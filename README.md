@@ -1,85 +1,182 @@
 # Jets voilés (Veiled Rolls)
 
-Module Foundry VTT pour le système **D&D5e**. Il permet au MJ de « voiler » certains jets — compétence, caractéristique ou sauvegarde. Le jet est calculé normalement par D&D5e, mais son résultat et sa carte de chat publique sont masqués côté joueur ; à la place, une **réponse narrative préparée à l'avance** est chuchotée en privé au joueur en fonction du total obtenu.
+Module Foundry VTT pour le système **D&D5e** (Foundry v13, D&D5e 5.x). Le MJ « voile » certains jets de compétence, de caractéristique ou de sauvegarde. D&D5e calcule le jet normalement, mais la carte de chat publique n'est jamais créée. À la place, chaque joueur reçoit en **chuchotement privé** une réponse narrative préparée à l'avance, choisie selon son total.
 
-L'usage typique : le MJ prépare, pour une scène, plusieurs paliers de réponse à un jet de Perception (« tu ne remarques rien », « une dalle sonne creux », « tu vois nettement le mécanisme »). Il active le filtre ; quand les joueurs lancent leur Perception, chacun reçoit discrètement la description correspondant à *son* total, sans que la table voie le chiffre.
+**Usage typique.** Pour la scène du couloir piégé, le MJ prépare un jet de Perception avec trois paliers : « tu ne remarques rien », « une dalle sonne creux », « tu vois nettement le mécanisme ». Il ajoute une **réponse personnelle** pour Alice : « tu reconnais la marque de la guilde des voleurs de ta jeunesse ». Il demande ensuite le jet au groupe. Chaque joueur lance, et la table ne voit aucun chiffre. Chacun reçoit discrètement le texte de son palier, sauf Alice qui reçoit d'office sa réponse personnelle, quel que soit son total.
+
+---
+
+## Utilisation
+
+Le module s'ouvre par le **bouton masque** placé à gauche de la barre de macros (MJ uniquement), par l'outil « Jets voilés » des contrôles de scène, ou par macro (voir [API](#api)).
+
+### 1. Préparer un jet voilé : une seule page
+
+Dans le panneau, cliquer sur **Nouveau jet voilé**. Tout tient sur une page, de haut en bas :
+
+1. **Nom de la scène** et **dossier** (par ex. « Session 3 »). Le dossier sert à regrouper les jets dans le panneau, et les dossiers existants sont proposés à la saisie.
+2. **Une carte par jet** :
+   - le **type** (compétence, caractéristique, sauvegarde) et la **compétence / caractéristique**, choisis dans une liste. Le libellé affiché est automatique, mais on peut le remplacer (par ex. « Intuition (aubergiste) ») ;
+   - les **réponses selon le résultat**. Trois paliers sont pré-remplis (≤ 9, 10–14, ≥ 15) : il suffit de taper les textes. Un palier laissé vide est ignoré à l'enregistrement. Plusieurs lignes dans un palier donnent plusieurs variantes, dont une est tirée au hasard. Un palier peut aussi être réservé au 1 ou au 20 naturel ;
+   - les **réponses personnelles** (facultatives) : un joueur et un texte (voir ci-dessous) ;
+   - un **testeur intégré** : saisir un total et, au besoin, « en tant que » tel joueur pour voir exactement ce qui serait envoyé, sans rien publier.
+3. **Ajouter un autre jet à cette scène** si la scène appelle plusieurs jets (Perception *et* Investigation, par exemple). Chaque carte peut être dupliquée ou supprimée.
+4. **Options avancées**, repliées par défaut. On y trouve le mode de résolution (plage exclusive ou seuil cumulatif), l'affichage du total au joueur, la couleur selon la réussite, les dés 3D, la réponse par défaut, les participants concernés, la politique de doublons, la fermeture automatique et une note MJ.
+
+**Enregistrer** range le jet dans la liste « À faire ». **Enregistrer et activer** active aussi le filtre tout de suite.
+
+### 2. Réponses personnelles
+
+Une réponse personnelle associe **un joueur** à **un texte**. Quand ce joueur fait le jet :
+
+- il reçoit ce texte **d'office**, quel que soit son total (même sur un 1) ;
+- tous les autres joueurs reçoivent normalement la réponse de leur palier ;
+- il lance son dé comme tout le monde, donc rien ne trahit à la table qu'il a reçu un traitement particulier ;
+- la réponse le suit aussi lorsque le MJ lance le jet à sa place, sur un personnage dont il est propriétaire.
+
+Un jet peut ne comporter **que** des réponses personnelles. Les autres joueurs reçoivent alors la réponse par défaut, si elle est configurée. Dans le panneau, une icône d'espion signale les jets qui en contiennent, avec le nom des joueurs concernés au survol. Le sélecteur de joueurs reprend cette icône, et l'historique marque ces réponses d'une étiquette « Personnelle ».
+
+### 3. Demander le jet : au groupe ou à certains joueurs
+
+Chaque jet du panneau propose deux boutons :
+
+- **Groupe** : tous les joueurs connectés reçoivent l'invite ;
+- **Joueur(s)** : une fenêtre permet de cocher un ou plusieurs joueurs. Ceux qui ont une réponse personnelle sur ce jet y sont signalés.
+
+Le joueur reçoit une boîte de dialogue « Le MJ te demande un jet de… ». Son jet est ensuite intercepté et voilé automatiquement. Demander un jet **active son filtre de lui-même**, sans étape d'activation préalable. Un joueur peut aussi lancer le jet directement depuis sa fiche pendant que le filtre est actif.
+
+### 4. Suivre ce qui reste à faire et ce qui a été fait
+
+Le panneau est découpé en trois onglets, chacun avec un compteur :
+
+| Onglet | Contenu |
+|---|---|
+| **À faire** | Jets pas encore joués, regroupés par dossier (repliables). Les jets **demandés** remontent en tête, surlignés en vert-de-gris, avec la liste des joueurs **encore attendus** (« En attente : Bob »). Un bouton ✓ marque un jet comme fait à la main. |
+| **Faits** | Jets joués (liseré laiton), avec leur date et, pour chacun, **qui a lancé, son total et un aperçu de la réponse reçue**. On peut le redemander, ou le **remettre à faire** (↺). |
+| **Historique** | Tous les jets traités, du plus récent au plus ancien : acteur, joueur, jet, total (visible du MJ seul), réponse, et étiquette « Personnelle » ou « Réponse par défaut » le cas échéant. Actions **Renvoyer** et **Copier**. |
+
+Un jet passe en « Fait » dès la première réponse envoyée. Quand tous les joueurs attendus ont répondu, le filtre se désactive de lui-même.
+
+**Nouvelle session** désactive le filtre et remet tous les jets en « À faire ». **L'historique est conservé** : il ne s'efface que par le bouton « Vider l'historique » de l'onglet Historique, et sa taille est plafonnée par un réglage du module.
+
+### 5. Bibliothèque
+
+La **Bibliothèque** liste toutes les scènes préparées, avec une recherche instantanée sur le nom, le dossier et les libellés. Elle permet de modifier, dupliquer, supprimer et activer une scène, ainsi que d'**exporter et importer** au format JSON. À l'import, en cas de conflit d'identifiant, on choisit de dupliquer, remplacer ou ignorer.
+
+---
 
 ## Ce qui a été testé, et ce qui ne l'a pas été
 
-Par honnêteté, la distinction est importante.
+**Tests automatisés (Vitest, 37 tests, `npm test`).** Ils couvrent toute la logique métier pure :
 
-**Couvert par des tests automatisés (Vitest, 42 tests).** Toute la logique métier pure : résolution des réponses selon les paliers (plage exclusive et seuil cumulatif, dés naturels, choix aléatoire à palier égal, réponse par défaut), validation des blocs, correspondance des participants, politique de doublons, et import/export (y compris la neutralisation du HTML dangereux). Le projet compile en TypeScript strict et le bundle se construit sans erreur.
+- résolution des paliers (plage exclusive, seuil cumulatif, dés naturels, tirage au hasard, réponse par défaut, couleur) ;
+- **réponses personnelles** (priorité sur les paliers, ordre des candidats, entrées vides ignorées, jet sans palier) ;
+- validation ;
+- conversion entre une scène et ses cartes de jet dans l'éditeur ;
+- import/export (y compris la neutralisation du HTML dangereux et la lecture des fichiers v1) ;
+- politique de doublons, participants, migration de l'état « fait ».
 
-**Non testé en conditions réelles.** Le module n'a **pas** été exécuté dans une instance Foundry live. Ne sont donc pas vérifiés par l'exécution : l'interception réelle des hooks D&D5e 5.x, le comportement en multijoueur (routage joueur → MJ responsable via socket), l'interaction avec Dice So Nice, et le rendu concret des fenêtres ApplicationV2 sous Foundry v13. Ces parties suivent la documentation et les conventions connues, mais doivent être validées sur une vraie table avant tout usage sérieux. Le bouton de contrôle de scène, en particulier, dépend d'une structure de hook qui a changé entre versions de Foundry ; le code gère les deux formes de façon défensive mais cela reste à confirmer.
+**Vérifié dans Chromium avec un Foundry simulé.** Les vraies fenêtres (code et gabarits du module) ont été rendues dans un navigateur, avec les objets globaux de Foundry remplacés par des simulations. Le parcours testé :
+
+- saisie dans l'éditeur une page, ajout et suppression de cartes, de paliers et de réponses personnelles ;
+- conservation de la saisie entre deux rendus, testeur intégré, enregistrement ;
+- demande au groupe et liste des joueurs attendus ;
+- traitement des jets (réponse de palier pour Bob, réponse personnelle pour Alice même sur 25, et aussi quand le MJ lance pour elle) ;
+- passage en « Fait », désactivation automatique, retour en « À faire » sans perte d'historique.
+
+Ce banc d'essai ne fait pas partie du dépôt.
+
+**Non testé en conditions réelles.** Le module n'a **pas** été exécuté dans une instance Foundry. Les points suivants restent donc à valider sur une vraie table avant tout usage sérieux :
+
+- l'interception effective des hooks D&D5e 5.x ;
+- le routage joueur → MJ par socket en multijoueur ;
+- Dice So Nice ;
+- le rendu exact sous ApplicationV2 de Foundry v13 ;
+- le déclenchement automatique du jet demandé.
+
+---
 
 ## Fonctionnement technique
 
 ### Hooks retenus
 
-Le module s'appuie sur les hooks « V2 » de D&D5e, introduits par la refonte des jets :
+Le module s'appuie sur les hooks « V2 » de D&D5e :
 
-- **Pré-jet** : `dnd5e.preRollSkillV2`, `dnd5e.preRollAbilityCheckV2`, `dnd5e.preRollSavingThrowV2`, de signature `(config, dialog, message)`. Positionner `message.create = false` dans ce hook empêche la création de la carte de chat publique — c'est le point clé qui garantit que le résultat n'est jamais affiché puis masqué, mais bel et bien intercepté *avant* publication.
-- **Post-jet** : `dnd5e.rollSkillV2`, `dnd5e.rollAbilityCheckV2`, `dnd5e.rollSavingThrowV2`, de signature `(rolls, data)`. Le total est lu sur `rolls[0].total`.
+- **Pré-jet** : `dnd5e.preRollSkillV2`, `dnd5e.preRollAbilityCheckV2` et `dnd5e.preRollSavingThrowV2`, de signature `(config, dialog, message)`. Le module y positionne `message.create = false` : la carte de chat publique n'est jamais créée. Le résultat n'est donc pas affiché puis masqué, il est intercepté *avant* publication.
+- **Post-jet** : `dnd5e.rollSkillV2`, `dnd5e.rollAbilityCheckV2` et `dnd5e.rollSavingThrowV2`, de signature `(rolls, data)`. Le total est lu sur `rolls[0].total`.
 
-À noter : `preRollAbilityCheckV2` se déclenche aussi pour les compétences et les outils. Le gestionnaire de caractéristique « cède la main » lorsqu'il détecte une config de compétence/outil, pour éviter un double traitement. Tout accès aux structures internes de D&D5e est confiné dans un unique adaptateur (`src/adapters/dnd5e-roll-adapter.ts`), avec des accès défensifs et des repli : en cas de doute, le jet se déroule normalement plutôt que de risquer une exception.
+`preRollAbilityCheckV2` se déclenche aussi pour les compétences et les outils. Le gestionnaire de caractéristique « cède la main » lorsqu'il reconnaît une config de compétence ou d'outil. Tout accès aux structures internes de D&D5e est confiné dans `src/adapters/dnd5e-roll-adapter.ts`, avec des accès défensifs : en cas de doute, le jet se déroule normalement plutôt que de risquer une exception.
 
-### Choix de stockage (sécurité)
+### Stockage et confidentialité
 
-Foundry diffuse **tout réglage de portée `world` à tous les clients connectés**. Stocker les blocs complets — qui contiennent les seuils et les réponses secrètes — dans un réglage `world` les divulguerait aux joueurs. Le module respecte donc la règle « les joueurs ne reçoivent jamais de donnée secrète » ainsi :
+Foundry diffuse **tout réglage de portée `world` à tous les clients**. Pour que les joueurs ne reçoivent jamais de donnée secrète :
 
-- Les **blocs d'évènement et l'historique** sont conservés dans un **JournalEntry privé du MJ** (permissions `NONE` pour tous). Les joueurs n'y ont aucun accès.
-- Seule une **projection publique non sensible** du filtre actif (les sélecteurs et la liste des participants, **sans** les réponses ni les seuils) est placée dans un réglage `world`. Elle sert uniquement à ce que le client d'un joueur puisse décider, localement, de masquer la carte publique de son jet avant qu'elle ne soit créée.
+- les **scènes** (paliers, réponses, réponses personnelles), l'**historique** et l'**état « fait »** sont conservés dans un **JournalEntry privé du MJ** (« Jets voilés — données privées », permission `NONE` pour tous). Les joueurs n'y ont aucun accès ;
+- seule une **projection publique non sensible** du filtre actif (les jets couverts et le mode de participation, **sans** réponses ni seuils) est placée dans un réglage `world`. Elle permet au client d'un joueur de décider localement de masquer la carte publique de son jet. Les réponses personnelles, et même le fait qu'un joueur en possède une, n'y figurent jamais.
 
 ### Routage et autorité
 
-Le client qui lance le jet effectue l'interception (masquage de la carte, marquage du jet). Le résultat est ensuite transmis par socket au **seul MJ responsable** (élu de façon déterministe via `game.users.activeGM`, avec repli), qui est le seul à résoudre la réponse et à l'envoyer. Les identifiants de requête sont dédupliqués pour qu'un jet soit traité exactement une fois, même avec plusieurs MJ connectés. En cas d'erreur, le principe est le **fail-safe** : le joueur reçoit toujours une note et le MJ est notifié — jamais de perte silencieuse.
+Le client qui lance le jet effectue l'interception : masquage de la carte et marquage du jet. Le résultat est transmis par socket au **seul MJ responsable**, élu de façon déterministe via `game.users.activeGM`, avec un repli. Lui seul résout la réponse (paliers ou réponse personnelle) et l'envoie. Les identifiants de requête sont dédupliqués. Le principe est le **fail-safe** : en cas d'erreur, le joueur reçoit toujours une note et le MJ est notifié.
+
+Pour une réponse personnelle, le MJ cherche d'abord l'utilisateur qui a lancé le jet, puis les propriétaires du personnage. Le chuchotement part vers le lanceur (et vers les MJ si l'option est active). Un message de diagnostic séparé, réservé aux MJ, indique le total et « Réponse personnelle ».
+
+### Format des données
+
+Le schéma de stockage et d'export passe en **version 2**, qui ajoute `personal_responses` (une liste `{ user_id, response }`) à chaque branche de réponses. Les scènes et fichiers de la version 1 se lisent sans conversion. Un fichier v2 n'est pas importable dans une version 1.x du module. L'éditeur présente une carte par jet, mais le format stocké reste « sélecteurs → branches → paliers ». Une ancienne scène dont deux jets partageaient la même branche est séparée en deux cartes indépendantes au premier enregistrement.
+
+Les identifiants de joueurs étant propres à chaque monde, les réponses personnelles d'une scène exportée puis importée dans un **autre monde** pointeront vers des joueurs inexistants. Il faut alors les réattribuer dans l'éditeur.
+
+---
 
 ## Installation
 
-Le module n'est pas publié sur un dépôt distant : il s'installe manuellement.
+Le module n'est pas encore publié via un manifeste. Il s'installe manuellement :
 
-1. Construire le module : `npm install` puis `npm run build` (produit `dist/module.js`).
-2. Empaqueter : `npm run package` (produit `build/veiled-rolls/` et `build/veiled-rolls.zip`).
-3. Décompresser le dossier `veiled-rolls/` dans le répertoire `Data/modules/` de Foundry, ou pointer un manifeste local vers `module.json`.
-4. Activer le module dans un monde utilisant le système D&D5e.
+1. Copier dans `Data/modules/veiled-rolls/` les fichiers `module.json`, `dist/`, `lang/`, `styles/` et `templates/`. Le dossier `dist/` est versionné : aucune compilation n'est nécessaire.
+2. Activer le module dans un monde utilisant le système D&D5e.
 
-## Commandes npm
+## Développement
 
-- `npm run build` — vérifie les types (strict) puis construit le bundle ESM.
-- `npm run typecheck` — vérification TypeScript seule.
-- `npm test` — lance la suite de tests Vitest.
-- `npm run coverage` — tests avec couverture.
-- `npm run package` — assemble le dossier et le zip installables.
+Le code source TypeScript est dans `src/`, et `dist/module.js` en est le bundle (Vite, format ES, non minifié, avec source map).
+
+```bash
+npm install
+npm run typecheck   # TypeScript strict
+npm test            # Vitest
+npm run build       # régénère dist/module.js
+npm run check       # les trois à la suite
+```
+
+Après toute modification de `src/`, relancer `npm run build` et committer `dist/` avec le reste.
+
+```
+src/
+  main.ts                    hooks Foundry, bouton de barre de macros, API
+  types.ts                   formes de données partagées
+  adapters/                  accès aux structures D&D5e (seul point de contact)
+  controllers/               activation du filtre, interception des jets
+  services/                  logique pure (résolution, validation, cartes de
+                             l'éditeur, import/export) et stockage privé
+  apps/                      fenêtres : panneau, éditeur une page, bibliothèque
+templates/                   gabarits Handlebars
+lang/                        fr.json, en.json (aucun texte codé en dur)
+styles/                      veiled-rolls.css (palette Campaign Scriptorium)
+tests/                       tests Vitest de la logique pure
+```
 
 ## API
 
-Une fois prête, l'API est exposée sur `game.modules.get("veiled-rolls").api`. Toutes les méthodes sont réservées au MJ et renvoient des copies (jamais de référence interne, jamais de donnée secrète accessible à un joueur) :
+L'API est exposée sur `game.modules.get("veiled-rolls").api`. Toutes les méthodes sont réservées au MJ et renvoient des copies :
 
-- `openControlPanel()` — ouvre le panneau de contrôle.
-- `openBlockLibrary()` — ouvre la bibliothèque de blocs.
-- `activate(blockId)` — valide puis active un bloc ; renvoie l'état du filtre.
-- `disable()` — désactive le filtre ; renvoie l'état.
-- `getActiveState()` — copie de l'état courant du filtre.
-- `getBlocks()` — copies de tous les blocs.
+- `openControlPanel()` ouvre le panneau ;
+- `openBlockLibrary()` ouvre la bibliothèque ;
+- `activate(blockId)` valide puis active une scène et renvoie l'état du filtre ;
+- `disable()` désactive le filtre ;
+- `getActiveState()` renvoie une copie de l'état du filtre ;
+- `getBlocks()` renvoie des copies de toutes les scènes.
 
 Exemple de macro : `game.modules.get("veiled-rolls").api.openControlPanel();`
 
 ## Réglages
 
-Deux réglages configurables (MJ) : le signalement optionnel des jets inattendus (un participant concerné lance un jet non couvert par le filtre) et la taille maximale de l'historique privé.
-
-## Notes de conception
-
-Aucun texte d'interface n'est codé en dur : tout passe par `game.i18n` avec des clés préfixées `VEILED_ROLLS.*` (fichiers `lang/fr.json` et `lang/en.json`). Les styles sont préfixés `veiled-rolls`, utilisent les variables CSS de Foundry (thèmes clair/sombre) et n'emploient pas `!important`. Le HTML des réponses est neutralisé à l'import et à la validation. Le TypeScript est strict, `any` n'étant toléré qu'à la frontière avec les globales Foundry (fichier `src/foundry-shim.d.ts`).
-
-## Résultat au joueur et couleur (v1.1)
-
-Deux options par bloc, dans l'onglet Options de l'éditeur. « Montrer son résultat au joueur » ajoute le total au chuchotement — visible du seul lanceur et du MJ, jamais de la table. « Colorer la réponse selon le degré de réussite » teinte la réponse du rouge au vert selon le palier atteint (relativement aux paliers que tu définis, pas à un DD absolu ; un bloc à palier unique n'est pas coloré).
-
-## Dice So Nice (v1.1)
-
-Réglage par bloc : « Désactivés » (aucune animation, comportement d'origine) ou « Privés » (animation 3D visible du lanceur et des MJ uniquement, jamais des autres joueurs). Les blocs plus anciens sont migrés automatiquement. Non vérifié en instance réelle.
-
-## Demander un jet (v1.1)
-
-Quand un bloc est actif, le panneau affiche une section « Demander un jet ». Le MJ choisit éventuellement des joueurs cibles (aucune sélection = tous), puis clique sur l'un des jets du bloc actif. Chaque joueur ciblé reçoit une boîte de dialogue l'invitant à lancer ; son jet suit ensuite l'interception habituelle et reste voilé. Le déclenchement s'appuie sur l'API dnd5e de la fiche (compétence, caractéristique, sauvegarde), avec repli si la méthode diffère ; non vérifié en instance réelle.
+Deux réglages réservés au MJ : signaler les jets inattendus (un participant lance un jet non couvert par le filtre actif) et la taille maximale de l'historique.

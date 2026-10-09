@@ -2,6 +2,32 @@
 
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [2.0.0] — 2026-10-09
+
+### Ajouté
+
+- **Réponses personnelles** : sur chaque jet, le MJ peut réserver un texte à un joueur précis. Ce joueur le reçoit d'office, quel que soit son total (y compris quand le MJ lance pour son personnage) ; les autres reçoivent la réponse de leur palier. Signalées dans le panneau, le sélecteur de joueurs, la bibliothèque, le diagnostic MJ et l'historique.
+- Panneau en trois onglets avec compteurs : **À faire** (jets demandés en tête, avec les joueurs encore attendus), **Faits** (qui a lancé, total, aperçu de la réponse) et **Historique**.
+- Actions par jet : modifier, marquer comme fait, remettre à faire.
+- Bouton **Nouveau jet voilé** directement dans le panneau.
+- Testeur intégré à chaque jet, avec option « en tant que » un joueur.
+- Projet source reconstitué (TypeScript, Vite, Vitest) et nouvelle suite de tests.
+
+### Modifié
+
+- **Éditeur sur une seule page**, sans onglets : nom et dossier, puis une carte par jet (type, compétence, paliers, réponses personnelles, test), et les réglages rares repliés dans « Options avancées ». La notion de « branche » disparaît de l'interface.
+- Un nouveau jet démarre avec trois paliers pré-remplis (≤ 9, 10–14, ≥ 15) ; les paliers laissés vides sont ignorés à l'enregistrement.
+- Libellé automatique (nom de la compétence) si le champ est laissé vide ; dossiers existants proposés à la saisie.
+- Participants « joueurs choisis » sélectionnés par cases à cocher ; « Utiliser les pions sélectionnés » pour les modes pions/acteurs.
+- **« Nouvelle session » conserve l'historique** : l'état « fait » est désormais stocké à part (migré automatiquement depuis l'historique existant).
+- Recherche de la bibliothèque instantanée (elle ne filtrait qu'au clic).
+- Schéma de données en version 2 (`personal_responses`) ; les données et exports v1 restent lisibles.
+- Feuille de style réécrite et allégée.
+
+### Non testé
+
+- Comme les versions précédentes, pas d'exécution dans une instance Foundry réelle. Les fenêtres et le traitement des jets ont été vérifiés dans Chromium avec un Foundry simulé.
+
 ## [1.4.1] — non daté
 
 ### Modifié

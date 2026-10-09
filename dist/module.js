@@ -1,9 +1,6 @@
-var __defProp = Object.defineProperty;
-var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 const MODULE_ID = "veiled-rolls";
 const SOCKET_NAME = `module.${MODULE_ID}`;
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const SETTINGS = {
   activeFilter: "activeFilter",
   notifyUnexpectedRolls: "notifyUnexpectedRolls",
@@ -64,8 +61,8 @@ function registerSettings(openBlockLibrary2) {
   });
 }
 function buildMenuApp(openBlockLibrary2) {
-  var _a;
-  return _a = class extends foundry.applications.api.ApplicationV2 {
+  return class VeiledRollsLibraryMenu extends foundry.applications.api.ApplicationV2 {
+    static DEFAULT_OPTIONS = { id: "veiled-rolls-library-menu" };
     async _prepareContext() {
       return {};
     }
@@ -74,7 +71,7 @@ function buildMenuApp(openBlockLibrary2) {
       await this.close();
       return this;
     }
-  }, __publicField(_a, "DEFAULT_OPTIONS", { id: "veiled-rolls-library-menu" }), _a;
+  };
 }
 function getModuleSetting(key) {
   return game.settings.get(MODULE_ID, key);
@@ -91,14 +88,11 @@ function getState() {
 }
 function buildDescriptor(block) {
   return {
-    selectors: block.selectors.map((s) => {
-      var _a;
-      return {
-        roll_type: s.roll_type,
-        key: s.key,
-        label: ((_a = s.label) == null ? void 0 : _a.trim()) || s.key
-      };
-    }),
+    selectors: block.selectors.map((s) => ({
+      roll_type: s.roll_type,
+      key: s.key,
+      label: s.label?.trim() || s.key
+    })),
     participantMode: block.options.participant_mode,
     participantIds: [...block.options.participant_ids],
     duplicatePolicy: block.options.duplicate_policy,
@@ -107,7 +101,6 @@ function buildDescriptor(block) {
   };
 }
 async function activate(block) {
-  var _a;
   const previous = getState();
   const state = {
     active: true,
@@ -117,7 +110,7 @@ async function activate(block) {
     participants: [],
     processedCount: 0,
     activatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    activatedBy: ((_a = game.user) == null ? void 0 : _a.id) ?? null
+    activatedBy: game.user?.id ?? null
   };
   await writeActiveState(state);
   return state;
@@ -224,6 +217,13 @@ function coerceTier(raw, idFactory) {
     weighting: "equal"
   };
 }
+function coercePersonal(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((entry) => {
+    const r = entry ?? {};
+    return { user_id: toStr(r.user_id), response: sanitizeHtml(toStr(r.response)) };
+  }).filter((p) => p.user_id.length > 0 && p.response.trim().length > 0);
+}
 function coerceBranch(raw, idFactory) {
   const r = raw ?? {};
   const rollType = VALID_ROLL_TYPES.includes(r.roll_type) ? r.roll_type : "skill";
@@ -233,7 +233,8 @@ function coerceBranch(raw, idFactory) {
     label: toStr(r.label),
     roll_type: rollType,
     key: toStr(r.key),
-    tiers
+    tiers,
+    personal_responses: coercePersonal(r.personal_responses)
   };
 }
 function coerceSelector(raw) {
@@ -383,7 +384,8 @@ function validateBlock(block) {
     }
   });
   (block.branches ?? []).forEach((branch, bIndex) => {
-    if (!Array.isArray(branch.tiers) || branch.tiers.length === 0) {
+    const personal = branch.personal_responses ?? [];
+    if ((!Array.isArray(branch.tiers) || branch.tiers.length === 0) && personal.length === 0) {
       errors.push({
         path: `branches.${bIndex}.tiers`,
         messageKey: "VEILED_ROLLS.Validation.TierRequired",
@@ -406,6 +408,21 @@ function validateBlock(block) {
           });
           break;
         }
+      }
+    });
+    const seenUsers = /* @__PURE__ */ new Set();
+    personal.forEach((entry, pIndex) => {
+      const path = `branches.${bIndex}.personal_responses.${pIndex}`;
+      if (!entry.user_id) {
+        errors.push({ path, messageKey: "VEILED_ROLLS.Validation.PersonalUserRequired" });
+      } else if (seenUsers.has(entry.user_id)) {
+        errors.push({ path, messageKey: "VEILED_ROLLS.Validation.PersonalDuplicate" });
+      }
+      seenUsers.add(entry.user_id);
+      if (!entry.response || entry.response.trim().length === 0) {
+        errors.push({ path, messageKey: "VEILED_ROLLS.Validation.PersonalEmpty" });
+      } else if (containsDangerousHtml(entry.response)) {
+        errors.push({ path, messageKey: "VEILED_ROLLS.Validation.DangerousHtml" });
       }
     });
     if (block.mode === "exclusive_range" && hasOverlappingRanges(branch)) {
@@ -443,13 +460,12 @@ const BLOCKS_FLAG = "blocks";
 const STORE_FLAG = "store";
 const STORE_NAME = "Jets voilés — données privées";
 let storeJournal = null;
-function newId() {
+function newId$1() {
   return foundry.utils.randomID();
 }
 async function ensureStore() {
-  var _a;
   if (storeJournal) return storeJournal;
-  const existing = (_a = game.journal) == null ? void 0 : _a.find(
+  const existing = game.journal?.find(
     (j) => j.getFlag(MODULE_ID, STORE_FLAG) === true
   );
   if (existing) {
@@ -465,8 +481,7 @@ async function ensureStore() {
   return created;
 }
 function getJournalEntryClass() {
-  var _a;
-  return globalThis.JournalEntry ?? ((_a = foundry.documents) == null ? void 0 : _a.JournalEntry) ?? CONFIG.JournalEntry.documentClass;
+  return globalThis.JournalEntry ?? foundry.documents?.JournalEntry ?? CONFIG.JournalEntry.documentClass;
 }
 async function getBlocks() {
   const store = await ensureStore();
@@ -502,7 +517,7 @@ async function duplicateBlock(id) {
   const source = blocks.find((b) => b.id === id);
   if (!source) return void 0;
   const copy = structuredClone(source);
-  copy.id = newId();
+  copy.id = newId$1();
   copy.name = `${source.name} (copie)`;
   const now = (/* @__PURE__ */ new Date()).toISOString();
   copy.metadata = { ...copy.metadata, created_at: now, updated_at: now };
@@ -520,7 +535,6 @@ async function exportLibrary(ids) {
   return exportBlocks(selected, (/* @__PURE__ */ new Date()).toISOString());
 }
 async function importLibrary(json, strategy) {
-  var _a;
   let parsed;
   try {
     parsed = JSON.parse(json);
@@ -530,19 +544,18 @@ async function importLibrary(json, strategy) {
   const shape = validateImportShape(parsed);
   if (!shape.valid) return { ok: false, errors: shape.errors };
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const userId = ((_a = game.user) == null ? void 0 : _a.id) ?? "unknown";
+  const userId = game.user?.id ?? "unknown";
   const rawBlocks = parsed.blocks;
-  const coerced = rawBlocks.map((b) => coerceImportedBlock(b, newId, now, userId));
+  const coerced = rawBlocks.map((b) => coerceImportedBlock(b, newId$1, now, userId));
   const invalid = coerced.flatMap((b) => validateBlock(b).errors);
   if (invalid.length > 0) return { ok: false, errors: invalid };
   const existing = await getBlocks();
-  const { blocks, summary } = applyImport(existing, coerced, strategy, newId);
+  const { blocks, summary } = applyImport(existing, coerced, strategy, newId$1);
   await persist(blocks);
   return { ok: true, summary };
 }
 function assertGm() {
-  var _a;
-  if (!((_a = game.user) == null ? void 0 : _a.isGM)) {
+  if (!game.user?.isGM) {
     throw new Error(game.i18n.localize("VEILED_ROLLS.Api.GmOnly"));
   }
 }
@@ -585,30 +598,28 @@ function createApi(hooks) {
   };
 }
 function isSkillOrToolConfig(config) {
-  return Boolean((config == null ? void 0 : config.skill) || (config == null ? void 0 : config.tool));
+  return Boolean(config?.skill || config?.tool);
 }
 function getRollKey(rollType, config) {
-  if (rollType === "skill") return (config == null ? void 0 : config.skill) ?? null;
-  return (config == null ? void 0 : config.ability) ?? null;
+  if (rollType === "skill") return config?.skill ?? null;
+  return config?.ability ?? null;
 }
 function extractPreRollInfo(rollType, config) {
-  var _a, _b, _c, _d, _e, _f;
-  const actor = (config == null ? void 0 : config.subject) ?? (config == null ? void 0 : config.actor);
-  if (!(actor == null ? void 0 : actor.uuid)) return null;
+  const actor = config?.subject ?? config?.actor;
+  if (!actor?.uuid) return null;
   const key = getRollKey(rollType, config);
   if (!key) return null;
-  const tokenUuid = ((_a = actor.token) == null ? void 0 : _a.uuid) ?? ((_e = (_d = (_c = (_b = actor.getActiveTokens) == null ? void 0 : _b.call(actor)) == null ? void 0 : _c[0]) == null ? void 0 : _d.document) == null ? void 0 : _e.uuid) ?? null;
+  const tokenUuid = actor.token?.uuid ?? actor.getActiveTokens?.()?.[0]?.document?.uuid ?? null;
   return {
     actor,
     actorUuid: actor.uuid,
     tokenUuid,
-    userId: ((_f = game.user) == null ? void 0 : _f.id) ?? "unknown",
+    userId: game.user?.id ?? "unknown",
     key
   };
 }
 function markRollForInterception(config, requestId) {
-  var _a;
-  const roll = (_a = config == null ? void 0 : config.rolls) == null ? void 0 : _a[0];
+  const roll = config?.rolls?.[0];
   if (!roll) return false;
   roll.options = roll.options ?? {};
   roll.options[ROLL_OPTION_KEY] = requestId;
@@ -618,30 +629,28 @@ function suppressPublicMessage(message) {
   if (message) message.create = false;
 }
 function readTotal(roll) {
-  const total = Number(roll == null ? void 0 : roll.total);
+  const total = Number(roll?.total);
   return Number.isFinite(total) ? total : null;
 }
 function readNatural(roll) {
-  var _a, _b, _c;
-  const die = ((_b = (_a = roll == null ? void 0 : roll.dice) == null ? void 0 : _a.find) == null ? void 0 : _b.call(_a, (d) => (d == null ? void 0 : d.faces) === 20)) ?? ((_c = roll == null ? void 0 : roll.dice) == null ? void 0 : _c[0]);
-  const value = Number(die == null ? void 0 : die.total);
+  const die = roll?.dice?.find?.((d) => d?.faces === 20) ?? roll?.dice?.[0];
+  const value = Number(die?.total);
   return Number.isFinite(value) ? value : null;
 }
 function extractPostRollInfo(rolls) {
-  var _a;
-  const roll = rolls == null ? void 0 : rolls[0];
+  const roll = rolls?.[0];
   if (!roll) return null;
   const total = readTotal(roll);
   if (total === null) return null;
   return {
-    requestId: ((_a = roll.options) == null ? void 0 : _a[ROLL_OPTION_KEY]) ?? null,
+    requestId: roll.options?.[ROLL_OPTION_KEY] ?? null,
     total,
     natural: readNatural(roll),
     formula: typeof roll.formula === "string" ? roll.formula : null
   };
 }
 function listRollKeys(rollType) {
-  const config = (CONFIG == null ? void 0 : CONFIG.DND5E) ?? {};
+  const config = CONFIG?.DND5E ?? {};
   const table = rollType === "skill" ? config.skills : config.abilities;
   const fallback = rollType === "skill" ? FALLBACK_SKILL_KEYS : FALLBACK_ABILITY_KEYS;
   const keys = table && typeof table === "object" ? Object.keys(table) : fallback;
@@ -670,7 +679,7 @@ const FALLBACK_SKILL_KEYS = [
 const FALLBACK_ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
 async function showDicePrivately(roll, whisperUserIds) {
   const dice3d = game.dice3d;
-  if (!(dice3d == null ? void 0 : dice3d.showForRoll)) return;
+  if (!dice3d?.showForRoll) return;
   try {
     await dice3d.showForRoll(roll, game.user, true, whisperUserIds, false, null, null);
   } catch (error) {
@@ -678,11 +687,10 @@ async function showDicePrivately(roll, whisperUserIds) {
   }
 }
 function resolvePlayerActor() {
-  var _a, _b, _c;
-  const assigned = (_a = game.user) == null ? void 0 : _a.character;
+  const assigned = game.user?.character;
   if (assigned) return assigned;
-  const controlled = ((_b = canvas == null ? void 0 : canvas.tokens) == null ? void 0 : _b.controlled) ?? [];
-  return ((_c = controlled[0]) == null ? void 0 : _c.actor) ?? null;
+  const controlled = canvas?.tokens?.controlled ?? [];
+  return controlled[0]?.actor ?? null;
 }
 async function triggerActorRoll(actor, rollType, key) {
   try {
@@ -716,10 +724,10 @@ async function triggerActorRoll(actor, rollType, key) {
   return false;
 }
 function getKeyLabel(rollType, key) {
-  const config = (CONFIG == null ? void 0 : CONFIG.DND5E) ?? {};
+  const config = CONFIG?.DND5E ?? {};
   const table = rollType === "skill" ? config.skills : config.abilities;
-  const entry = table == null ? void 0 : table[key];
-  const label = (entry == null ? void 0 : entry.label) ?? (entry == null ? void 0 : entry.name) ?? key;
+  const entry = table?.[key];
+  const label = entry?.label ?? entry?.name ?? key;
   return typeof label === "string" ? label : key;
 }
 function decideDuplicate(policy, actorUuid, seenActorUuids) {
@@ -758,10 +766,6 @@ async function clearHistory() {
   const store = await ensureStore();
   await store.setFlag(MODULE_ID, HISTORY_FLAG, []);
 }
-async function getRecentHistory(limit = 20) {
-  const history = await getHistory();
-  return history.slice(-limit).reverse();
-}
 function matchesParticipant(config, candidate) {
   switch (config.mode) {
     case "all_players":
@@ -785,15 +789,13 @@ function markProcessed(requestId) {
   if (processedIds.length > PROCESSED_CAP) processedIds.shift();
 }
 function responsibleGmId() {
-  var _a, _b, _c;
-  const active = (_a = game.users) == null ? void 0 : _a.activeGM;
-  if (active == null ? void 0 : active.id) return active.id;
-  const gms = (_b = game.users) == null ? void 0 : _b.filter((u) => u.isGM && u.active).sort((a, b) => String(a.id).localeCompare(String(b.id)));
-  return ((_c = gms == null ? void 0 : gms[0]) == null ? void 0 : _c.id) ?? null;
+  const active = game.users?.activeGM;
+  if (active?.id) return active.id;
+  const gms = game.users?.filter((u) => u.isGM && u.active).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return gms?.[0]?.id ?? null;
 }
 function isResponsibleGm() {
-  var _a;
-  return Boolean((_a = game.user) == null ? void 0 : _a.id) && game.user.id === responsibleGmId();
+  return Boolean(game.user?.id) && game.user.id === responsibleGmId();
 }
 function registerSocket(processingHandler) {
   handler = processingHandler;
@@ -812,23 +814,21 @@ function onSocketMessage(data) {
 }
 function onFilteredRoll(context) {
   if (!isResponsibleGm()) return;
-  if (!(context == null ? void 0 : context.request_id) || processedIds.includes(context.request_id)) return;
+  if (!context?.request_id || processedIds.includes(context.request_id)) return;
   markProcessed(context.request_id);
-  void (handler == null ? void 0 : handler(context).catch((error) => {
-    var _a;
+  void handler?.(context).catch((error) => {
     console.error("[veiled-rolls] failed to process filtered roll", error);
-    (_a = ui.notifications) == null ? void 0 : _a.error(game.i18n.localize("VEILED_ROLLS.Notify.ProcessError"));
-  }));
+    ui.notifications?.error(game.i18n.localize("VEILED_ROLLS.Notify.ProcessError"));
+  });
 }
 function onRollRequest(request) {
-  var _a, _b;
-  if (!(request == null ? void 0 : request.requestId)) return;
-  if ((_a = game.user) == null ? void 0 : _a.isGM) return;
+  if (!request?.requestId) return;
+  if (game.user?.isGM) return;
   const targets = request.targetUserIds;
-  if (targets !== null && !targets.includes(((_b = game.user) == null ? void 0 : _b.id) ?? "")) return;
-  void (requestHandler == null ? void 0 : requestHandler(request).catch((error) => {
+  if (targets !== null && !targets.includes(game.user?.id ?? "")) return;
+  void requestHandler?.(request).catch((error) => {
     console.error("[veiled-rolls] failed to handle roll request", error);
-  }));
+  });
 }
 function emitFilteredRoll(context) {
   game.socket.emit(SOCKET_NAME, {
@@ -855,14 +855,16 @@ function connectedPlayers() {
 function outstandingSelectorIds() {
   return new Set(outstanding.keys());
 }
+function outstandingUsers(rollType, key) {
+  return [...outstanding.get(selectorId(rollType, key)) ?? []];
+}
 function resetRequests() {
   outstanding.clear();
 }
 function requestRoll(rollType, key, targetUserIds) {
-  var _a, _b;
   const state = getState();
   if (!state.active || !state.blockId || !state.descriptor) {
-    (_a = ui.notifications) == null ? void 0 : _a.warn(game.i18n.localize("VEILED_ROLLS.Request.NeedActive"));
+    ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Request.NeedActive"));
     return false;
   }
   const audience = targetUserIds && targetUserIds.length > 0 ? targetUserIds : connectedPlayers().map((p) => p.id);
@@ -879,17 +881,13 @@ function requestRoll(rollType, key, targetUserIds) {
   if (audience.length > 0) {
     outstanding.set(selectorId(rollType, key), new Set(audience));
   }
-  const scope = request.targetUserIds === null ? game.i18n.localize("VEILED_ROLLS.Request.ScopeAll") : request.targetUserIds.map((id) => {
-    var _a2, _b2;
-    return ((_b2 = (_a2 = game.users) == null ? void 0 : _a2.get(id)) == null ? void 0 : _b2.name) ?? id;
-  }).join(", ");
-  (_b = ui.notifications) == null ? void 0 : _b.info(
+  const scope = request.targetUserIds === null ? game.i18n.localize("VEILED_ROLLS.Request.ScopeAll") : request.targetUserIds.map((id) => game.users?.get(id)?.name ?? id).join(", ");
+  ui.notifications?.info(
     game.i18n.format("VEILED_ROLLS.Request.Sent", { roll: request.keyLabel, scope })
   );
   return true;
 }
 async function markRequestProgress(userId, rollType, key) {
-  var _a;
   const id = selectorId(rollType, key);
   const expected = outstanding.get(id);
   if (!expected) return;
@@ -898,7 +896,7 @@ async function markRequestProgress(userId, rollType, key) {
   if (outstanding.size === 0) {
     await disable();
     resetRequests();
-    (_a = ui.notifications) == null ? void 0 : _a.info(game.i18n.localize("VEILED_ROLLS.Request.AllDone"));
+    ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Request.AllDone"));
   }
 }
 const defaultRandom = Math.random;
@@ -941,6 +939,7 @@ function resolveExclusiveRange(branch, total, natural, randomize, random) {
     paragraphs: [paragraph],
     tierIds: [chosen.id],
     usedFallback: false,
+    personal: false,
     tone: rankTone(branch, [chosen.id])
   };
 }
@@ -970,11 +969,37 @@ function resolveCumulativeThreshold(branch, total, natural, randomize, random) {
     }
   }
   if (paragraphs.length === 0) return null;
-  return { paragraphs, tierIds, usedFallback: false, tone: rankTone(branch, tierIds) };
+  return {
+    paragraphs,
+    tierIds,
+    usedFallback: false,
+    personal: false,
+    tone: rankTone(branch, tierIds)
+  };
 }
-function resolveResponse(block, context, random = defaultRandom) {
+function findPersonalResponse(branch, candidateUserIds) {
+  const usable = (branch.personal_responses ?? []).filter(
+    (p) => p.user_id && p.response.trim().length > 0
+  );
+  for (const userId of candidateUserIds) {
+    const match = usable.find((p) => p.user_id === userId);
+    if (match) return match;
+  }
+  return void 0;
+}
+function resolveResponse(block, context, random = defaultRandom, candidateUserIds = []) {
   const branch = findBranch(block, context.roll_type, context.key);
   if (!branch) return fallbackOrNull(block);
+  const personal = findPersonalResponse(branch, candidateUserIds);
+  if (personal) {
+    return {
+      paragraphs: [personal.response],
+      tierIds: [],
+      usedFallback: false,
+      personal: true,
+      tone: null
+    };
+  }
   const randomize = block.options.randomize_equal_tier_responses;
   const resolved = block.mode === "cumulative_threshold" ? resolveCumulativeThreshold(
     branch,
@@ -997,6 +1022,7 @@ function fallbackOrNull(block) {
       paragraphs: [block.options.fallback_response],
       tierIds: [],
       usedFallback: true,
+      personal: false,
       tone: null
     };
   }
@@ -1009,7 +1035,7 @@ function t(key, data) {
 function activeGmIds() {
   return game.users.filter((u) => u.isGM && u.active).map((u) => u.id);
 }
-function escapeText(value) {
+function escapeText$1(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function toneClass(tone) {
@@ -1021,7 +1047,7 @@ function toneClass(tone) {
   return " tone-1";
 }
 function buildPlayerContent(block, context, actorName, resolved) {
-  const title = t("Whisper.PlayerTitle", { actor: escapeText(actorName) });
+  const title = t("Whisper.PlayerTitle", { actor: escapeText$1(actorName) });
   const body = resolved.paragraphs.map((p) => `<p>${p}</p>`).join("");
   let total = "";
   if (block.options.show_result_to_player) {
@@ -1033,12 +1059,12 @@ function buildPlayerContent(block, context, actorName, resolved) {
   const tone = block.options.color_by_tier ? toneClass(resolved.tone) : "";
   return `<div class="veiled-rolls-whisper${tone}"><p class="veiled-rolls-whisper-title">${title}</p>${body}${total}</div>`;
 }
-function buildGmContent(block, context, resolved, actorName, userName, keyLabel) {
+function buildGmContent(block, context, resolved, actorName, userName2, keyLabel) {
   const rows = [
-    [t("Diag.Block"), escapeText(block.name)],
-    [t("Diag.Player"), escapeText(userName)],
-    [t("Diag.Actor"), escapeText(actorName)],
-    [t("Diag.Roll"), escapeText(keyLabel)],
+    [t("Diag.Block"), escapeText$1(block.name)],
+    [t("Diag.Player"), escapeText$1(userName2)],
+    [t("Diag.Actor"), escapeText$1(actorName)],
+    [t("Diag.Roll"), escapeText$1(keyLabel)],
     [t("Diag.Total"), String(context.total)]
   ];
   if (context.natural_result !== null) {
@@ -1046,7 +1072,7 @@ function buildGmContent(block, context, resolved, actorName, userName, keyLabel)
   }
   rows.push([
     t("Diag.Tiers"),
-    resolved.usedFallback ? t("Diag.Fallback") : resolved.tierIds.join(", ") || "—"
+    resolved.personal ? t("Diag.Personal") : resolved.usedFallback ? t("Diag.Fallback") : resolved.tierIds.join(", ") || "—"
   ]);
   const list = rows.map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`).join("");
   return `<div class="veiled-rolls-diag"><p class="veiled-rolls-diag-title">${t(
@@ -1078,7 +1104,7 @@ async function deliverResponse(params) {
       }
     }
   });
-  if (playerMessage == null ? void 0 : playerMessage.id) created.push(playerMessage.id);
+  if (playerMessage?.id) created.push(playerMessage.id);
   if (block.options.show_total_to_gm && gmIds.length > 0) {
     const gmMessage = await ChatMessage.create({
       content: buildGmContent(
@@ -1098,12 +1124,12 @@ async function deliverResponse(params) {
         }
       }
     });
-    if (gmMessage == null ? void 0 : gmMessage.id) created.push(gmMessage.id);
+    if (gmMessage?.id) created.push(gmMessage.id);
   }
   return created;
 }
 function ownerUserIds(actor) {
-  const ownership = (actor == null ? void 0 : actor.ownership) ?? {};
+  const ownership = actor?.ownership ?? {};
   const owners = [];
   for (const user of game.users ?? []) {
     if (user.isGM) continue;
@@ -1116,7 +1142,7 @@ async function resendHistory(entry) {
   const actor = await fromUuid(entry.actorUuid);
   const recipients = Array.from(/* @__PURE__ */ new Set([...ownerUserIds(actor), ...activeGmIds()]));
   const body = entry.responseParagraphs.map((p) => `<p>${p}</p>`).join("");
-  const title = t("Whisper.PlayerTitle", { actor: escapeText(entry.actorName) });
+  const title = t("Whisper.PlayerTitle", { actor: escapeText$1(entry.actorName) });
   await ChatMessage.create({
     speaker: speakerFor(actor, entry.actorName),
     content: `<div class="veiled-rolls-whisper"><p class="veiled-rolls-whisper-title">${title}</p>${body}</div>`,
@@ -1132,12 +1158,53 @@ async function sendPlayerNote(targetUserId, messageKey) {
     flags: { [FLAG_SCOPE]: { kind: "note" } }
   });
 }
+const DONE_FLAG = "done";
+function rollId(blockId, rollType, key) {
+  return `${blockId}|${rollType}|${key}`;
+}
+function doneFromHistory(history) {
+  const done = {};
+  for (const h of history) {
+    const id = rollId(h.blockId, h.rollType, h.key);
+    if (done[id] === void 0 || h.timestamp < done[id]) done[id] = h.timestamp;
+  }
+  return done;
+}
+async function getDone() {
+  const store = await ensureStore();
+  const raw = store.getFlag(MODULE_ID, DONE_FLAG);
+  if (Array.isArray(raw)) return Object.fromEntries(raw);
+  const history = store.getFlag(MODULE_ID, "history") ?? [];
+  const migrated = doneFromHistory(history);
+  await writeDone(migrated);
+  return migrated;
+}
+async function writeDone(done) {
+  const store = await ensureStore();
+  await store.setFlag(MODULE_ID, DONE_FLAG, Object.entries(done));
+}
+async function markDone(blockId, rollType, key) {
+  const done = await getDone();
+  const id = rollId(blockId, rollType, key);
+  if (done[id] !== void 0) return;
+  done[id] = Date.now();
+  await writeDone(done);
+}
+async function unmarkDone(blockId, rollType, key) {
+  const done = await getDone();
+  const id = rollId(blockId, rollType, key);
+  if (done[id] === void 0) return;
+  delete done[id];
+  await writeDone(done);
+}
+async function clearDone() {
+  await writeDone({});
+}
 const pending = /* @__PURE__ */ new Map();
 function acceptedActorUuids() {
   return getState().participants.filter((p) => p.status === "accepted").map((p) => p.actorUuid);
 }
 function handlePreRoll(rollType, config, message) {
-  var _a, _b;
   if (rollType === "ability_check" && isSkillOrToolConfig(config)) return;
   const state = getState();
   if (!state.active || !state.descriptor || !state.blockId) return;
@@ -1152,8 +1219,8 @@ function handlePreRoll(rollType, config, message) {
     { userId: info.userId, actorUuid: info.actorUuid, tokenUuid: info.tokenUuid }
   );
   if (!keyMatches) {
-    if (participates && ((_a = game.user) == null ? void 0 : _a.isGM) && getModuleSetting(SETTINGS.notifyUnexpectedRolls)) {
-      (_b = ui.notifications) == null ? void 0 : _b.info(
+    if (participates && game.user?.isGM && getModuleSetting(SETTINGS.notifyUnexpectedRolls)) {
+      ui.notifications?.info(
         game.i18n.format("VEILED_ROLLS.Notify.UnexpectedRoll", {
           key: getKeyLabel(rollType, info.key)
         })
@@ -1183,16 +1250,15 @@ function handlePreRoll(rollType, config, message) {
   });
 }
 async function handlePostRoll(rolls, _data) {
-  var _a;
   const post = extractPostRollInfo(rolls);
-  if (!(post == null ? void 0 : post.requestId)) return;
+  if (!post?.requestId) return;
   const p = pending.get(post.requestId);
   if (!p) return;
   pending.delete(post.requestId);
   const descriptor = getState().descriptor;
-  if ((descriptor == null ? void 0 : descriptor.diceSoNiceMode) === "private" && rolls[0]) {
+  if (descriptor?.diceSoNiceMode === "private" && rolls[0]) {
     const audience = Array.from(
-      new Set([(_a = game.user) == null ? void 0 : _a.id, ...activeGmIds()].filter(Boolean))
+      new Set([game.user?.id, ...activeGmIds()].filter(Boolean))
     );
     await showDicePrivately(rolls[0], audience);
   }
@@ -1218,8 +1284,7 @@ async function handlePostRoll(rolls, _data) {
   }
 }
 async function failSafe(userId, gmKey, playerKey) {
-  var _a;
-  (_a = ui.notifications) == null ? void 0 : _a.warn(game.i18n.localize(gmKey));
+  ui.notifications?.warn(game.i18n.localize(gmKey));
   try {
     await sendPlayerNote(userId, playerKey);
   } catch (error) {
@@ -1227,7 +1292,6 @@ async function failSafe(userId, gmKey, playerKey) {
   }
 }
 async function processFilteredRoll(context) {
-  var _a, _b, _c, _d, _e;
   try {
     const block = await getBlock(context.block_id);
     if (!block) {
@@ -1255,7 +1319,7 @@ async function processFilteredRoll(context) {
       acceptedActorUuids()
     );
     const actor = await fromUuid(context.actor_uuid);
-    const actorName = typeof (actor == null ? void 0 : actor.name) === "string" ? actor.name : context.actor_uuid;
+    const actorName = typeof actor?.name === "string" ? actor.name : context.actor_uuid;
     if (action === "reject") {
       await sendPlayerNote(context.user_id, "VEILED_ROLLS.Notify.DuplicatePlayer");
       await recordParticipant(
@@ -1263,12 +1327,13 @@ async function processFilteredRoll(context) {
       );
       return;
     }
-    const resolved = resolveResponse(block, context);
-    const userName = ((_b = (_a = game.users) == null ? void 0 : _a.get(context.user_id)) == null ? void 0 : _b.name) ?? "?";
+    const candidates = Array.from(/* @__PURE__ */ new Set([context.user_id, ...ownerUserIds(actor)]));
+    const resolved = resolveResponse(block, context, void 0, candidates);
+    const userName2 = game.users?.get(context.user_id)?.name ?? "?";
     const keyLabel = getKeyLabel(context.roll_type, context.key);
     if (!resolved) {
       await sendPlayerNote(context.user_id, "VEILED_ROLLS.Notify.NoResultPlayer");
-      (_c = ui.notifications) == null ? void 0 : _c.warn(
+      ui.notifications?.warn(
         game.i18n.format("VEILED_ROLLS.Notify.NoTierMatched", {
           actor: actorName,
           total: context.total
@@ -1276,8 +1341,9 @@ async function processFilteredRoll(context) {
       );
       await addHistory({
         id: foundry.utils.randomID(),
-        timestamp: context.timestamp,
-        userName: ((_e = (_d = game.users) == null ? void 0 : _d.get(context.user_id)) == null ? void 0 : _e.name) ?? "?",
+        // GM clock, consistent with the done markers set right after.
+        timestamp: Date.now(),
+        userName: game.users?.get(context.user_id)?.name ?? "?",
         actorName,
         actorUuid: context.actor_uuid,
         rollType: context.roll_type,
@@ -1289,12 +1355,15 @@ async function processFilteredRoll(context) {
         blockName: block.name,
         tierIds: [],
         responseParagraphs: [game.i18n.localize("VEILED_ROLLS.Panel.NoResponseSent")],
-        usedFallback: false
+        usedFallback: false,
+        personal: false
       });
+      await markDone(block.id, context.roll_type, context.key);
       await recordParticipant(
         makeParticipant(context.actor_uuid, actorName, "accepted", context.total)
       );
       await incrementProcessed();
+      await markRequestProgress(context.user_id, context.roll_type, context.key);
       return;
     }
     await deliverResponse({
@@ -1303,14 +1372,15 @@ async function processFilteredRoll(context) {
       resolved,
       actor,
       actorName,
-      userName,
+      userName: userName2,
       keyLabel,
       targetUserId: context.user_id
     });
     await addHistory({
       id: foundry.utils.randomID(),
-      timestamp: context.timestamp,
-      userName,
+      // GM clock, consistent with the done markers set right after.
+      timestamp: Date.now(),
+      userName: userName2,
       actorName,
       actorUuid: context.actor_uuid,
       rollType: context.roll_type,
@@ -1322,8 +1392,10 @@ async function processFilteredRoll(context) {
       blockName: block.name,
       tierIds: resolved.tierIds,
       responseParagraphs: resolved.paragraphs,
-      usedFallback: resolved.usedFallback
+      usedFallback: resolved.usedFallback,
+      personal: resolved.personal
     });
+    await markDone(block.id, context.roll_type, context.key);
     await recordParticipant(
       makeParticipant(context.actor_uuid, actorName, "accepted", context.total)
     );
@@ -1347,7 +1419,7 @@ async function maybeAutoClose(block, processedCount) {
   }
   if (auto_close_mode === "after_each_participant") {
     const descriptor = getState().descriptor;
-    const ids = (descriptor == null ? void 0 : descriptor.participantIds) ?? [];
+    const ids = descriptor?.participantIds ?? [];
     if (ids.length > 0) {
       const accepted = new Set(acceptedActorUuids());
       const allDone = ids.every((id) => accepted.has(id));
@@ -1356,10 +1428,9 @@ async function maybeAutoClose(block, processedCount) {
   }
 }
 async function handleRollRequest(request) {
-  var _a, _b;
   const actor = resolvePlayerActor();
   if (!actor) {
-    (_a = ui.notifications) == null ? void 0 : _a.warn(game.i18n.localize("VEILED_ROLLS.Request.NoActor"));
+    ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Request.NoActor"));
     return;
   }
   const confirmed = await foundry.applications.api.DialogV2.wait({
@@ -1380,31 +1451,103 @@ async function handleRollRequest(request) {
   if (confirmed !== "roll") return;
   const ok = await triggerActorRoll(actor, request.rollType, request.key);
   if (!ok) {
-    (_b = ui.notifications) == null ? void 0 : _b.warn(game.i18n.localize("VEILED_ROLLS.Request.Failed"));
+    ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Request.Failed"));
   }
+}
+function emptyTier(idFactory, minimum = null, maximum = null) {
+  return {
+    id: idFactory(),
+    minimum,
+    maximum,
+    responses: [],
+    gm_note: "",
+    natural_roll: "any",
+    weighting: "equal"
+  };
+}
+function defaultTiers(idFactory) {
+  return [emptyTier(idFactory, null, 9), emptyTier(idFactory, 10, 14), emptyTier(idFactory, 15, null)];
+}
+function newCard(idFactory, rollType = "skill", key = "") {
+  return {
+    branchId: null,
+    roll_type: rollType,
+    key,
+    label: "",
+    tiers: defaultTiers(idFactory),
+    personal: []
+  };
+}
+function blockToCards(block) {
+  const used = /* @__PURE__ */ new Set();
+  return block.selectors.map((selector) => {
+    const branch = block.branches.find((b) => b.id === selector.branch_id);
+    const reuse = branch && !used.has(branch.id) ? branch.id : null;
+    if (reuse) used.add(reuse);
+    return {
+      branchId: reuse,
+      roll_type: selector.roll_type,
+      key: selector.key,
+      label: selector.label ?? "",
+      tiers: structuredClone(branch?.tiers ?? []),
+      personal: structuredClone(branch?.personal_responses ?? [])
+    };
+  });
+}
+function hasText(tier) {
+  return tier.responses.some((r) => r.trim().length > 0);
+}
+function cardsToBlock(block, cards, idFactory) {
+  const next = structuredClone(block);
+  next.selectors = [];
+  next.branches = [];
+  for (const card of cards) {
+    const branchId = card.branchId ?? idFactory();
+    const label = card.label.trim();
+    next.selectors.push({
+      roll_type: card.roll_type,
+      key: card.key,
+      label,
+      branch_id: branchId
+    });
+    next.branches.push({
+      id: branchId,
+      label: label || card.key,
+      roll_type: card.roll_type,
+      key: card.key,
+      tiers: card.tiers.filter(hasText).map((t2) => ({
+        ...t2,
+        responses: t2.responses.map((r) => sanitizeHtml(r.trim())).filter((r) => r.length > 0)
+      })),
+      personal_responses: card.personal.map((p) => ({ user_id: p.user_id.trim(), response: sanitizeHtml(p.response.trim()) })).filter((p) => p.user_id.length > 0 || p.response.length > 0)
+    });
+  }
+  return next;
 }
 const { ApplicationV2: ApplicationV2$2, HandlebarsApplicationMixin: HandlebarsApplicationMixin$2 } = foundry.applications.api;
 const PARTICIPANT_MODES = [
   "all_players",
+  "selected_users",
   "selected_tokens",
-  "selected_actors",
-  "selected_users"
+  "selected_actors"
 ];
 const DUPLICATE_POLICIES = [
-  "accept_all",
   "first_per_actor",
+  "accept_all",
   "replace_previous",
   "ask_gm"
 ];
 const AUTO_CLOSE_MODES = ["manual", "after_roll_count", "after_each_participant"];
 const NATURAL_OPTIONS = ["any", "natural_1", "natural_20"];
-function newBlockTemplate() {
-  var _a;
+function newId() {
+  return foundry.utils.randomID();
+}
+function newBlockTemplate(folder = "") {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   return {
-    id: foundry.utils.randomID(),
+    id: newId(),
     name: "",
-    folder: "",
+    folder,
     description: "",
     enabled: true,
     mode: "exclusive_range",
@@ -1428,383 +1571,422 @@ function newBlockTemplate() {
     metadata: {
       created_at: now,
       updated_at: now,
-      created_by: ((_a = game.user) == null ? void 0 : _a.id) ?? "",
+      created_by: game.user?.id ?? "",
       schema_version: SCHEMA_VERSION
     }
   };
 }
-const _BlockEditor = class _BlockEditor extends HandlebarsApplicationMixin$2(ApplicationV2$2) {
+function playerUsers() {
+  return (game.users ?? []).filter((u) => !u.isGM).map((u) => ({ id: String(u.id), name: String(u.name) })).sort((a, b) => a.name.localeCompare(b.name));
+}
+class BlockEditor extends HandlebarsApplicationMixin$2(ApplicationV2$2) {
+  static DEFAULT_OPTIONS = {
+    id: "veiled-rolls-block-editor-{id}",
+    classes: ["veiled-rolls", "veiled-rolls-editor"],
+    tag: "form",
+    window: {
+      title: "VEILED_ROLLS.Editor.Title",
+      icon: "fa-solid fa-mask",
+      resizable: true
+    },
+    position: { width: 680, height: 760 }
+  };
+  static PARTS = {
+    body: { template: `modules/${MODULE_ID}/templates/block-editor.hbs` }
+  };
+  /** Block-level fields and options (selectors/branches live in `cards`). */
+  working;
+  /** One card per roll; the source of truth for selectors and branches. */
+  cards;
+  /** Inline test state, parallel to `cards`. */
+  tests;
+  /** Whether the advanced-options section is unfolded. */
+  advancedOpen = false;
+  /** Validation errors (localized) from the last save attempt. */
+  errors = [];
   constructor(block, options = {}) {
     super(options);
-    /** In-memory working copy; never a live repository reference. */
-    __publicField(this, "working");
-    /** Currently selected tab id. */
-    __publicField(this, "activeTab", "general");
-    /** Last test-tool result (paragraphs) shown in the UI. */
-    __publicField(this, "testResult", null);
-    /** Test-tool inputs, kept across re-renders so repeated testing is quick. */
-    __publicField(this, "testSelector", "");
-    __publicField(this, "testTotal", 15);
-    /** Validation errors (localized) from the last save attempt. */
-    __publicField(this, "errors", []);
     this.working = structuredClone(block);
+    this.cards = blockToCards(this.working).map((card) => ({
+      ...card,
+      // A label equal to the system wording was filled automatically: show it
+      // as a placeholder so it follows the key if the GM changes it.
+      label: card.label === getKeyLabel(card.roll_type, card.key) ? "" : card.label
+    }));
+    if (this.cards.length === 0) this.cards.push(newCard(newId));
+    this.tests = this.cards.map(() => this.blankTest());
+  }
+  /** Default inline-test state for one card. */
+  blankTest() {
+    return { total: 12, userId: "", result: null };
   }
   async _prepareContext() {
     const w = this.working;
-    const branchChoices = w.branches.map((b) => {
-      var _a;
-      return {
-        id: b.id,
-        label: ((_a = b.label) == null ? void 0 : _a.trim()) || b.id
-      };
-    });
+    const players = playerUsers();
+    const nameOf = (id) => players.find((p) => p.id === id)?.name ?? id;
+    const isExclusive = w.mode === "exclusive_range";
+    const folders = [...new Set((await getBlocks()).map((b) => b.folder?.trim()).filter(Boolean))].sort();
+    const participantIds = new Set(w.options.participant_ids);
     return {
-      tab: this.activeTab,
-      tabs: [
-        { id: "general", label: "VEILED_ROLLS.Editor.TabGeneral" },
-        { id: "rolls", label: "VEILED_ROLLS.Editor.TabRolls" },
-        { id: "responses", label: "VEILED_ROLLS.Editor.TabResponses" },
-        { id: "participants", label: "VEILED_ROLLS.Editor.TabParticipants" },
-        { id: "options", label: "VEILED_ROLLS.Editor.TabOptions" }
-      ],
       block: w,
-      isExclusive: w.mode === "exclusive_range",
-      modes: this.modeOptions(w.mode),
-      naturalOptions: [...NATURAL_OPTIONS],
-      participantModes: PARTICIPANT_MODES,
-      duplicatePolicies: DUPLICATE_POLICIES,
-      autoCloseModes: [...AUTO_CLOSE_MODES],
+      isExclusive,
+      folders,
+      cards: this.cards.map((card, ci) => {
+        const test = this.tests[ci] ?? this.blankTest();
+        const keyChoices = listRollKeys(card.roll_type).map((choice) => ({
+          ...choice,
+          selected: choice.value === card.key
+        }));
+        const title = card.label.trim() || (card.key ? getKeyLabel(card.roll_type, card.key) : "");
+        return {
+          index: ci,
+          number: ci + 1,
+          title,
+          label: card.label,
+          canRemove: this.cards.length > 1,
+          rollTypes: ROLL_TYPES.map((value) => ({
+            value,
+            label: `VEILED_ROLLS.RollType.${value}`,
+            selected: value === card.roll_type
+          })),
+          keyChoices,
+          autoLabel: card.key ? getKeyLabel(card.roll_type, card.key) : "",
+          tiers: card.tiers.map((t2, ti) => ({
+            index: ti,
+            minimum: t2.minimum,
+            maximum: t2.maximum,
+            responsesText: t2.responses.join("\n"),
+            naturals: NATURAL_OPTIONS.map((n) => ({
+              value: n,
+              label: `VEILED_ROLLS.Natural.${n}`,
+              selected: n === t2.natural_roll
+            }))
+          })),
+          personal: card.personal.map((p, pi) => ({
+            index: pi,
+            response: p.response,
+            players: [
+              ...players.map((u) => ({ ...u, selected: u.id === p.user_id })),
+              // Keep a stale id visible rather than silently dropping it.
+              ...p.user_id && !players.some((u) => u.id === p.user_id) ? [{ id: p.user_id, name: nameOf(p.user_id), selected: true }] : []
+            ]
+          })),
+          hasPersonal: card.personal.length > 0,
+          test: {
+            total: test.total,
+            result: test.result,
+            players: players.map((u) => ({ ...u, selected: u.id === test.userId }))
+          }
+        };
+      }),
+      hasPlayers: players.length > 0,
+      advancedOpen: this.advancedOpen,
+      modes: [
+        { value: "exclusive_range", label: "VEILED_ROLLS.Editor.ModeExclusive", selected: isExclusive },
+        { value: "cumulative_threshold", label: "VEILED_ROLLS.Editor.ModeCumulative", selected: !isExclusive }
+      ],
+      participantModes: PARTICIPANT_MODES.map((m) => ({
+        value: m,
+        label: `VEILED_ROLLS.Mode.${m}`,
+        selected: m === w.options.participant_mode
+      })),
+      showUserPicker: w.options.participant_mode === "selected_users",
+      showIdList: w.options.participant_mode === "selected_tokens" || w.options.participant_mode === "selected_actors",
+      participantPlayers: players.map((u) => ({ ...u, checked: participantIds.has(u.id) })),
+      participantIdsText: w.options.participant_ids.join("\n"),
+      duplicatePolicies: DUPLICATE_POLICIES.map((d) => ({
+        value: d,
+        label: `VEILED_ROLLS.Duplicate.${d}`,
+        selected: d === w.options.duplicate_policy
+      })),
+      autoCloseModes: AUTO_CLOSE_MODES.map((m) => ({
+        value: m,
+        label: `VEILED_ROLLS.AutoClose.${m}`,
+        selected: m === w.options.auto_close_mode
+      })),
       diceModes: [
         { value: "disabled", label: "VEILED_ROLLS.Dice.disabled", selected: w.options.dice_so_nice_mode === "disabled" },
         { value: "private", label: "VEILED_ROLLS.Dice.private", selected: w.options.dice_so_nice_mode === "private" }
       ],
-      participantIds: w.options.participant_ids.join("\n"),
-      branchChoices,
-      // Each row carries its own key list, matching that row's roll type.
-      selectors: w.selectors.map((s) => ({
-        ...s,
-        rollTypes: this.rollTypeOptions(s.roll_type),
-        keyChoices: this.keyOptions(s.roll_type, s.key),
-        branches: branchChoices.map((b) => ({ ...b, selected: b.id === s.branch_id }))
-      })),
-      branches: w.branches.map((b) => {
-        var _a;
-        return {
-          ...b,
-          displayName: ((_a = b.label) == null ? void 0 : _a.trim()) || b.id,
-          rollTypes: this.rollTypeOptions(b.roll_type),
-          keyChoices: this.keyOptions(b.roll_type, b.key),
-          tiers: b.tiers.map((t2) => ({ ...t2, responsesText: t2.responses.join("\n") }))
-        };
-      }),
-      // Selectors offered to the test tool, labelled readably.
-      testChoices: w.selectors.map((s) => {
-        var _a;
-        return {
-          value: `${s.roll_type}|${s.key}`,
-          label: ((_a = s.label) == null ? void 0 : _a.trim()) || getKeyLabel(s.roll_type, s.key) || s.key,
-          selected: `${s.roll_type}|${s.key}` === this.testSelector
-        };
-      }),
-      testTotal: this.testTotal,
-      testResult: this.testResult,
       errors: this.errors
     };
   }
-  /** Roll-type options with the current one flagged. */
-  rollTypeOptions(current) {
-    return ROLL_TYPES.map((value) => ({
-      value,
-      label: `VEILED_ROLLS.RollType.${value}`,
-      selected: value === current
-    }));
-  }
-  /**
-   * Key options for a roll type. Free text was error-prone: D&D5e expects short
-   * ids (`acr`, `dex`), and a skill name is invalid for an ability check.
-   */
-  keyOptions(rollType, current) {
-    return listRollKeys(rollType).map((choice) => ({
-      ...choice,
-      selected: choice.value === current
-    }));
-  }
-  /** Options for the resolution-mode select with the current one flagged. */
-  modeOptions(current) {
-    return [
-      { value: "exclusive_range", label: "VEILED_ROLLS.Editor.ModeExclusive", selected: current === "exclusive_range" },
-      { value: "cumulative_threshold", label: "VEILED_ROLLS.Editor.ModeCumulative", selected: current === "cumulative_threshold" }
-    ];
-  }
+  // ---------------------------------------------------------------------------
+  //  DOM → working copy
+  // ---------------------------------------------------------------------------
   /** The root form element of this application. */
   get form() {
-    var _a, _b;
-    return this.element instanceof HTMLFormElement ? this.element : ((_b = (_a = this.element) == null ? void 0 : _a.querySelector) == null ? void 0 : _b.call(_a, "form")) ?? null;
+    return this.element instanceof HTMLFormElement ? this.element : this.element?.querySelector?.("form") ?? null;
   }
-  /** Read a scalar string value by input name from the form. */
+  /** Read a scalar string value by input name (empty when absent). */
   field(name) {
-    var _a;
-    const el = (_a = this.form) == null ? void 0 : _a.elements.namedItem(name);
-    return (el == null ? void 0 : el.value) ?? "";
+    const el = this.form?.elements.namedItem(name);
+    return el?.value ?? "";
+  }
+  /** Whether an input with this name is currently rendered. */
+  has(name) {
+    return Boolean(this.form?.elements.namedItem(name));
   }
   /** Read a checkbox value by input name. */
   checked(name) {
-    var _a;
-    const el = (_a = this.form) == null ? void 0 : _a.elements.namedItem(name);
-    return Boolean(el == null ? void 0 : el.checked);
+    const el = this.form?.elements.namedItem(name);
+    return Boolean(el?.checked);
+  }
+  /** Parse an optional number input. */
+  optionalNumber(name) {
+    const raw = this.field(name).trim();
+    if (raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
   }
   /**
-   * Sync the DOM fields of the *currently rendered* tab into the working copy.
-   *
-   * Only the active tab exists in the DOM, so each group is guarded: reading a
-   * field belonging to a hidden tab would return an empty string and silently
-   * erase the user's data (and turn every option checkbox off).
+   * Read every rendered field back into the working copy. The whole editor is a
+   * single page, so all fields are in the DOM; each read is still guarded so a
+   * render race can never blank out data.
    */
   sync() {
+    if (!this.form) return;
     const w = this.working;
-    const selector = this.field("test_selector");
-    if (selector) this.testSelector = selector;
-    const rawTotal = this.field("test_total");
-    if (rawTotal !== "") {
-      const parsed = Number(rawTotal);
-      if (Number.isFinite(parsed)) this.testTotal = parsed;
-    }
-    if (this.activeTab === "general") {
-      w.name = this.field("name").trim();
-      w.folder = this.field("folder").trim();
-      w.description = this.field("description");
-      w.mode = this.field("mode") || w.mode;
-    }
-    if (this.activeTab === "rolls") {
-      w.selectors = w.selectors.map((_, i) => {
-        const rollType = this.field(`sel-${i}-roll_type`) || "skill";
-        const key = this.field(`sel-${i}-key`).trim().toLowerCase();
-        const label = this.field(`sel-${i}-label`).trim() || getKeyLabel(rollType, key);
-        return {
-          roll_type: rollType,
-          key,
-          label,
-          branch_id: this.field(`sel-${i}-branch_id`).trim()
-        };
-      });
-    }
-    if (this.activeTab === "responses") {
-      w.branches = w.branches.map((b, bi) => ({
-        id: b.id,
-        label: this.field(`br-${bi}-label`).trim() || b.id,
-        roll_type: this.field(`br-${bi}-roll_type`) || b.roll_type,
-        key: this.field(`br-${bi}-key`).trim().toLowerCase() || b.key,
-        tiers: b.tiers.map((t2, ti) => this.readTier(bi, ti, t2))
-      }));
-    }
+    if (this.has("name")) w.name = this.field("name").trim();
+    if (this.has("folder")) w.folder = this.field("folder").trim();
+    this.cards = this.cards.map((card, ci) => {
+      if (!this.has(`card-${ci}-type`)) return card;
+      const rollType = this.field(`card-${ci}-type`) || card.roll_type;
+      const rawKey = this.field(`card-${ci}-key`).trim().toLowerCase();
+      const key = listRollKeys(rollType).some((c) => c.value === rawKey) ? rawKey : "";
+      const test = this.tests[ci] ?? this.blankTest();
+      const total = this.optionalNumber(`card-${ci}-test-total`);
+      if (total !== null) test.total = total;
+      test.userId = this.field(`card-${ci}-test-user`);
+      this.tests[ci] = test;
+      return {
+        branchId: card.branchId,
+        roll_type: rollType,
+        key,
+        label: this.field(`card-${ci}-label`),
+        tiers: card.tiers.map((tier, ti) => this.readTier(ci, ti, tier)),
+        personal: card.personal.map((p, pi) => ({
+          user_id: this.has(`pers-${ci}-${pi}-user`) ? this.field(`pers-${ci}-${pi}-user`) : p.user_id,
+          response: this.has(`pers-${ci}-${pi}-text`) ? this.field(`pers-${ci}-${pi}-text`) : p.response
+        }))
+      };
+    });
+    if (!this.has("mode")) return;
+    w.mode = this.field("mode") || w.mode;
+    w.description = this.field("description");
     const opts = w.options;
-    if (this.activeTab === "participants") {
-      opts.participant_mode = this.field("participant_mode") || opts.participant_mode;
-      opts.duplicate_policy = this.field("duplicate_policy") || opts.duplicate_policy;
+    opts.include_gm_in_whisper = this.checked("include_gm_in_whisper");
+    opts.show_total_to_gm = this.checked("show_total_to_gm");
+    opts.show_result_to_player = this.checked("show_result_to_player");
+    opts.color_by_tier = this.checked("color_by_tier");
+    opts.dice_so_nice_mode = this.field("dice_so_nice_mode") || "disabled";
+    opts.randomize_equal_tier_responses = this.checked("randomize_equal_tier_responses");
+    opts.send_fallback_response = this.checked("send_fallback_response");
+    opts.fallback_response = this.field("fallback_response");
+    opts.auto_close_mode = this.field("auto_close_mode") || "manual";
+    const count = this.optionalNumber("auto_close_roll_count");
+    opts.auto_close_roll_count = count !== null && count > 0 ? count : null;
+    opts.duplicate_policy = this.field("duplicate_policy") || opts.duplicate_policy;
+    const previousMode = opts.participant_mode;
+    opts.participant_mode = this.field("participant_mode") || previousMode;
+    if (opts.participant_mode !== previousMode) {
+      opts.participant_ids = [];
+    } else if (this.form.querySelector('[name="participant_user"]')) {
+      opts.participant_ids = Array.from(
+        this.form.querySelectorAll('input[name="participant_user"]:checked')
+      ).map((el) => el.value);
+    } else if (this.has("participant_ids")) {
       opts.participant_ids = this.field("participant_ids").split(/[\n,]/).map((s) => s.trim()).filter((s) => s.length > 0);
-    }
-    if (this.activeTab === "options") {
-      opts.include_gm_in_whisper = this.checked("include_gm_in_whisper");
-      opts.show_total_to_gm = this.checked("show_total_to_gm");
-      opts.show_result_to_player = this.checked("show_result_to_player");
-      opts.color_by_tier = this.checked("color_by_tier");
-      opts.dice_so_nice_mode = this.field("dice_so_nice_mode") || "disabled";
-      opts.randomize_equal_tier_responses = this.checked("randomize_equal_tier_responses");
-      opts.send_fallback_response = this.checked("send_fallback_response");
-      opts.fallback_response = this.field("fallback_response");
-      opts.auto_close_mode = this.field("auto_close_mode") || "manual";
-      const count = Number(this.field("auto_close_roll_count"));
-      opts.auto_close_roll_count = Number.isFinite(count) && count > 0 ? count : null;
     }
   }
   /** Parse one tier's fields from the DOM. */
-  readTier(bi, ti, current) {
-    const minRaw = this.field(`tier-${bi}-${ti}-min`).trim();
-    const maxRaw = this.field(`tier-${bi}-${ti}-max`).trim();
-    const responses = this.field(`tier-${bi}-${ti}-responses`).split("\n").map((s) => s.trim()).filter((s) => s.length > 0);
+  readTier(ci, ti, current) {
+    if (!this.has(`tier-${ci}-${ti}-responses`)) return current;
     return {
-      id: current.id,
-      minimum: minRaw === "" ? null : Number(minRaw),
-      maximum: maxRaw === "" ? null : Number(maxRaw),
-      responses,
-      gm_note: this.field(`tier-${bi}-${ti}-gm_note`),
-      natural_roll: this.field(`tier-${bi}-${ti}-natural`) || "any",
-      weighting: "equal"
+      ...current,
+      minimum: this.optionalNumber(`tier-${ci}-${ti}-min`),
+      maximum: this.optionalNumber(`tier-${ci}-${ti}-max`),
+      responses: this.field(`tier-${ci}-${ti}-responses`).split("\n").map((s) => s.trim()).filter((s) => s.length > 0),
+      natural_roll: this.field(`tier-${ci}-${ti}-natural`) || "any"
     };
   }
+  // ---------------------------------------------------------------------------
+  //  Events
+  // ---------------------------------------------------------------------------
   /**
-   * Wire tab switching with a direct click listener rather than the framework's
-   * `data-action` dispatch.
-   *
-   * ApplicationV2 reserves the `tab` action for its own tab-group handling, and
-   * the exact convention varies between versions; binding the listener here makes
-   * tab navigation independent of that mechanism. Listeners are re-attached on
-   * every render because the elements are recreated each time.
+   * Bind one delegated click/change listener on the window root. Buttons carry a
+   * `data-vr-action` attribute instead of the framework's `data-action`, which
+   * keeps behaviour identical across Foundry versions. The root element survives
+   * re-renders, so the listeners are attached only once per element.
    */
   _onRender(_context, _options) {
     const root = this.element;
-    if (!(root == null ? void 0 : root.querySelectorAll)) return;
-    for (const el of root.querySelectorAll("[data-tab-id]")) {
-      el.addEventListener("click", (event) => {
-        var _a, _b;
-        event.preventDefault();
-        const id = (_b = (_a = event.currentTarget) == null ? void 0 : _a.dataset) == null ? void 0 : _b.tabId;
-        if (!id) return;
-        this.sync();
-        this.activeTab = id;
-        void this.render();
-      });
-    }
-    for (const el of root.querySelectorAll("[data-vr-refresh]")) {
-      el.addEventListener("change", () => {
-        this.sync();
-        void this.render();
-      });
-    }
-  }
-  static onAddSelector() {
-    this.sync();
-    this.working.selectors.push({ roll_type: "skill", key: "", label: "", branch_id: "" });
-    void this.render();
-  }
-  static onRemoveSelector(_event, target) {
-    var _a;
-    this.sync();
-    const i = Number((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.index);
-    if (Number.isInteger(i)) this.working.selectors.splice(i, 1);
-    void this.render();
-  }
-  static onAddBranch() {
-    this.sync();
-    const branch = {
-      id: foundry.utils.randomID(),
-      label: "",
-      roll_type: "skill",
-      key: "",
-      tiers: []
-    };
-    this.working.branches.push(branch);
-    void this.render();
-  }
-  static onRemoveBranch(_event, target) {
-    var _a;
-    this.sync();
-    const i = Number((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.index);
-    if (Number.isInteger(i)) this.working.branches.splice(i, 1);
-    void this.render();
-  }
-  static onAddTier(_event, target) {
-    var _a;
-    this.sync();
-    const bi = Number((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.index);
-    const branch = this.working.branches[bi];
-    if (!branch) return;
-    branch.tiers.push({
-      id: foundry.utils.randomID(),
-      minimum: null,
-      maximum: null,
-      responses: [],
-      gm_note: "",
-      natural_roll: "any",
-      weighting: "equal"
+    if (!root?.addEventListener || root.dataset.vrBound === "1") return;
+    root.dataset.vrBound = "1";
+    root.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-vr-action]");
+      if (!button || !root.contains(button)) return;
+      event.preventDefault();
+      void this.dispatch(button.dataset.vrAction ?? "", button.dataset);
     });
-    void this.render();
+    root.addEventListener("change", (event) => {
+      const el = event.target;
+      if (el?.closest?.("[data-vr-refresh]")) {
+        this.sync();
+        void this.render();
+      }
+    });
+    root.addEventListener(
+      "toggle",
+      (event) => {
+        const el = event.target;
+        if (el?.dataset?.vrAdvanced !== void 0) this.advancedOpen = el.open;
+      },
+      true
+    );
+    root.addEventListener("submit", (event) => event.preventDefault());
   }
-  static onRemoveTier(_event, target) {
-    var _a, _b;
-    this.sync();
-    const bi = Number((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.branch);
-    const ti = Number((_b = target == null ? void 0 : target.dataset) == null ? void 0 : _b.tier);
-    const branch = this.working.branches[bi];
-    if (branch && Number.isInteger(ti)) branch.tiers.splice(ti, 1);
-    void this.render();
-  }
-  static onTest() {
-    this.sync();
-    const [roll_type, key] = this.testSelector.split("|");
-    if (!Number.isFinite(this.testTotal) || !key) {
-      this.testResult = [game.i18n.localize("VEILED_ROLLS.Editor.TestInvalid")];
-      void this.render();
+  /** Route a delegated click to its handler. */
+  async dispatch(action, data) {
+    const ci = Number(data.card);
+    const index = Number(data.index);
+    if (action === "save") return this.onSave(false);
+    if (action === "saveActivate") return this.onSave(true);
+    if (action === "cancel") {
+      await this.close();
       return;
     }
-    const resolved = resolveResponse(this.working, {
-      roll_type,
-      key,
-      total: this.testTotal,
-      natural_result: null
-    });
-    this.testResult = resolved ? resolved.paragraphs : [game.i18n.localize("VEILED_ROLLS.Editor.TestNoMatch")];
+    this.sync();
+    const card = Number.isInteger(ci) ? this.cards[ci] : void 0;
+    switch (action) {
+      case "addCard":
+        this.cards.push(newCard(newId));
+        this.tests.push(this.blankTest());
+        break;
+      case "removeCard":
+        if (card && this.cards.length > 1) {
+          this.cards.splice(ci, 1);
+          this.tests.splice(ci, 1);
+        }
+        break;
+      case "duplicateCard":
+        if (card) {
+          const copy = structuredClone(card);
+          copy.branchId = null;
+          copy.tiers = copy.tiers.map((t2) => ({ ...t2, id: newId() }));
+          this.cards.splice(ci + 1, 0, copy);
+          this.tests.splice(ci + 1, 0, this.blankTest());
+        }
+        break;
+      case "addTier":
+        card?.tiers.push(emptyTier(newId));
+        break;
+      case "removeTier":
+        if (card && Number.isInteger(index)) card.tiers.splice(index, 1);
+        break;
+      case "addPersonal":
+        card?.personal.push({ user_id: "", response: "" });
+        break;
+      case "removePersonal":
+        if (card && Number.isInteger(index)) card.personal.splice(index, 1);
+        break;
+      case "test":
+        if (card) this.runTest(ci);
+        break;
+      case "useSelection":
+        this.captureSelection();
+        break;
+      default:
+        return;
+    }
     void this.render();
   }
-  /** Persist the working copy; returns the saved block or null on failure. */
+  /** Resolve a simulated total against one card, without creating any message. */
+  runTest(ci) {
+    const card = this.cards[ci];
+    const test = this.tests[ci];
+    if (!card || !test) return;
+    if (!card.key || !Number.isFinite(test.total)) {
+      test.result = [game.i18n.localize("VEILED_ROLLS.Editor.TestInvalid")];
+      return;
+    }
+    const preview = cardsToBlock(this.working, [card], newId);
+    const resolved = resolveResponse(
+      preview,
+      { roll_type: card.roll_type, key: card.key, total: test.total, natural_result: null },
+      void 0,
+      test.userId ? [test.userId] : []
+    );
+    if (!resolved) {
+      test.result = [game.i18n.localize("VEILED_ROLLS.Editor.TestNoMatch")];
+      return;
+    }
+    const prefix = resolved.personal ? [game.i18n.localize("VEILED_ROLLS.Editor.TestPersonal")] : resolved.usedFallback ? [game.i18n.localize("VEILED_ROLLS.Editor.TestFallback")] : [];
+    test.result = [...prefix, ...resolved.paragraphs.map(sanitizeHtml)];
+  }
+  /** Fill the participant list from the tokens currently selected on the canvas. */
+  captureSelection() {
+    const opts = this.working.options;
+    const controlled = canvas?.tokens?.controlled ?? [];
+    const ids = controlled.map(
+      (t2) => opts.participant_mode === "selected_actors" ? t2?.actor?.uuid : t2?.document?.uuid
+    ).filter((id) => typeof id === "string");
+    if (ids.length === 0) {
+      ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Editor.NoSelection"));
+      return;
+    }
+    opts.participant_ids = [...new Set(ids)];
+  }
+  // ---------------------------------------------------------------------------
+  //  Save
+  // ---------------------------------------------------------------------------
+  /** Build the block to store from the working copy and the cards. */
+  assemble() {
+    const cards = this.cards.map((card) => ({
+      ...card,
+      // An empty label falls back to the system's own wording for the key.
+      label: card.label.trim() || (card.key ? getKeyLabel(card.roll_type, card.key) : "")
+    }));
+    const block = cardsToBlock(this.working, cards, newId);
+    block.options.fallback_response = sanitizeHtml(block.options.fallback_response);
+    block.metadata.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+    return block;
+  }
+  /** Validate and persist; returns the saved block or null on failure. */
   async persist() {
     this.sync();
-    this.working.metadata.updated_at = (/* @__PURE__ */ new Date()).toISOString();
-    const validation = validateBlock(this.working);
+    const block = this.assemble();
+    const validation = validateBlock(block);
     if (!validation.valid) {
-      this.errors = validation.errors.map(
-        (e) => game.i18n.format(e.messageKey, e.data ?? {})
-      );
+      this.errors = [
+        ...new Set(validation.errors.map((e) => game.i18n.format(e.messageKey, e.data ?? {})))
+      ];
       void this.render();
       return null;
     }
     this.errors = [];
-    const result = await upsertBlock(this.working);
+    const result = await upsertBlock(block);
     if (!result.valid) {
       this.errors = result.errors.map((e) => game.i18n.format(e.messageKey, e.data ?? {}));
       void this.render();
       return null;
     }
     refreshBlockLibrary();
-    return this.working;
+    return block;
   }
-  static async onSave() {
-    var _a;
-    const saved = await this.persist();
-    if (saved) {
-      (_a = ui.notifications) == null ? void 0 : _a.info(game.i18n.localize("VEILED_ROLLS.Notify.Saved"));
-      await this.close();
-    }
-  }
-  static async onSaveActivate() {
-    var _a;
+  /** Save, optionally activate, then close. */
+  async onSave(andActivate) {
     const saved = await this.persist();
     if (!saved) return;
-    await activate(saved);
-    (_a = ui.notifications) == null ? void 0 : _a.info(game.i18n.localize("VEILED_ROLLS.Notify.Activated"));
+    if (andActivate) {
+      await activate(saved);
+      ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Notify.Activated"));
+    } else {
+      ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Notify.Saved"));
+    }
     await this.close();
   }
-  static async onCancel() {
-    await this.close();
-  }
-};
-__publicField(_BlockEditor, "DEFAULT_OPTIONS", {
-  id: "veiled-rolls-block-editor",
-  classes: ["veiled-rolls", "veiled-rolls-editor"],
-  tag: "form",
-  window: {
-    title: "VEILED_ROLLS.Editor.Title",
-    icon: "fa-solid fa-pen-to-square",
-    resizable: true
-  },
-  position: { width: 640, height: 640 },
-  actions: {
-    addSelector: _BlockEditor.onAddSelector,
-    removeSelector: _BlockEditor.onRemoveSelector,
-    addBranch: _BlockEditor.onAddBranch,
-    removeBranch: _BlockEditor.onRemoveBranch,
-    addTier: _BlockEditor.onAddTier,
-    removeTier: _BlockEditor.onRemoveTier,
-    test: _BlockEditor.onTest,
-    save: _BlockEditor.onSave,
-    saveActivate: _BlockEditor.onSaveActivate,
-    cancel: _BlockEditor.onCancel
-  }
-});
-__publicField(_BlockEditor, "PARTS", {
-  body: { template: `modules/${MODULE_ID}/templates/block-editor.hbs` }
-});
-let BlockEditor = _BlockEditor;
+}
 function openBlockEditor(block) {
   void new BlockEditor(block).render({ force: true });
 }
@@ -1815,8 +1997,7 @@ async function readJsonFile() {
     input.type = "file";
     input.accept = "application/json,.json";
     input.addEventListener("change", () => {
-      var _a;
-      const file = (_a = input.files) == null ? void 0 : _a[0];
+      const file = input.files?.[0];
       if (!file) return resolve(null);
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
@@ -1826,28 +2007,50 @@ async function readJsonFile() {
     input.click();
   });
 }
-const _BlockLibrary = class _BlockLibrary extends HandlebarsApplicationMixin$1(ApplicationV2$1) {
-  constructor() {
-    super(...arguments);
-    __publicField(this, "query", "");
-    __publicField(this, "blocks", []);
-  }
+class BlockLibrary extends HandlebarsApplicationMixin$1(ApplicationV2$1) {
+  static instance = null;
+  static DEFAULT_OPTIONS = {
+    id: "veiled-rolls-block-library",
+    classes: ["veiled-rolls", "veiled-rolls-library"],
+    tag: "section",
+    window: {
+      title: "VEILED_ROLLS.Library.Title",
+      icon: "fa-solid fa-book",
+      resizable: true
+    },
+    position: { width: 720, height: 600 },
+    actions: {
+      create: BlockLibrary.onCreate,
+      edit: BlockLibrary.onEdit,
+      duplicate: BlockLibrary.onDuplicate,
+      remove: BlockLibrary.onDelete,
+      activate: BlockLibrary.onActivate,
+      exportOne: BlockLibrary.onExportOne,
+      exportAll: BlockLibrary.onExportAll,
+      importBlocks: BlockLibrary.onImport
+    }
+  };
+  static PARTS = {
+    body: { template: `modules/${MODULE_ID}/templates/block-library.hbs` }
+  };
+  query = "";
+  blocks = [];
   static open() {
-    _BlockLibrary.instance ?? (_BlockLibrary.instance = new _BlockLibrary());
-    void _BlockLibrary.instance.render({ force: true });
+    BlockLibrary.instance ??= new BlockLibrary();
+    void BlockLibrary.instance.render({ force: true });
   }
   static refresh() {
-    var _a;
-    if ((_a = _BlockLibrary.instance) == null ? void 0 : _a.rendered) void _BlockLibrary.instance.render();
+    if (BlockLibrary.instance?.rendered) void BlockLibrary.instance.render();
   }
   async _prepareContext() {
     this.blocks = await getBlocks();
-    const q = this.query.toLowerCase();
-    const rows = this.blocks.filter((b) => !q || b.name.toLowerCase().includes(q) || (b.folder ?? "").toLowerCase().includes(q)).map((b) => ({
+    const rows = this.blocks.slice().sort((a, b) => (a.folder ?? "").localeCompare(b.folder ?? "") || a.name.localeCompare(b.name)).map((b) => ({
       id: b.id,
+      search: [b.name, b.folder, ...b.selectors.map((s) => s.label)].join(" ").toLowerCase(),
       name: b.name || game.i18n.localize("VEILED_ROLLS.Library.Unnamed"),
       folder: b.folder || "—",
-      rolls: b.selectors.map((s) => s.key.toUpperCase()).join(", ") || "—",
+      rolls: b.selectors.map((s) => s.label?.trim() || s.key).join(", ") || "—",
+      personal: b.branches.some((br) => (br.personal_responses ?? []).length > 0),
       mode: game.i18n.localize(
         b.mode === "cumulative_threshold" ? "VEILED_ROLLS.Editor.ModeCumulative" : "VEILED_ROLLS.Editor.ModeExclusive"
       ),
@@ -1859,29 +2062,39 @@ const _BlockLibrary = class _BlockLibrary extends HandlebarsApplicationMixin$1(A
   block(id) {
     return this.blocks.find((b) => b.id === id);
   }
-  static onSearch(event) {
-    const target = event == null ? void 0 : event.target;
-    this.query = (target == null ? void 0 : target.value) ?? "";
-    void this.render();
+  /**
+   * Filter rows as the GM types. Filtering is done on the rendered rows rather
+   * than by re-rendering, so the search field keeps its focus and caret.
+   */
+  _onRender(_context, _options) {
+    const root = this.element;
+    const input = root?.querySelector?.("#vr-search");
+    if (!root || !input) return;
+    const apply = () => {
+      this.query = input.value;
+      const q = this.query.trim().toLowerCase();
+      for (const row of root.querySelectorAll("[data-search]")) {
+        row.hidden = q.length > 0 && !(row.dataset.search ?? "").includes(q);
+      }
+    };
+    input.addEventListener("input", apply);
+    apply();
   }
   static onCreate() {
     openBlockEditor(newBlockTemplate());
   }
   static onEdit(_event, target) {
-    var _a;
-    const block = this.block(((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id) ?? "");
+    const block = this.block(target?.dataset?.id ?? "");
     if (block) openBlockEditor(structuredClone(block));
   }
   static async onDuplicate(_event, target) {
-    var _a;
-    const id = (_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id;
+    const id = target?.dataset?.id;
     if (!id) return;
     await duplicateBlock(id);
     void this.render();
   }
   static async onDelete(_event, target) {
-    var _a;
-    const id = (_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id;
+    const id = target?.dataset?.id;
     if (!id) return;
     const block = this.block(id);
     if (!block) return;
@@ -1894,20 +2107,18 @@ const _BlockLibrary = class _BlockLibrary extends HandlebarsApplicationMixin$1(A
     void this.render();
   }
   static async onActivate(_event, target) {
-    var _a, _b, _c;
-    const block = this.block(((_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id) ?? "");
+    const block = this.block(target?.dataset?.id ?? "");
     if (!block) return;
     const validation = validateBlock(block);
     if (!validation.valid) {
-      (_b = ui.notifications) == null ? void 0 : _b.warn(game.i18n.localize("VEILED_ROLLS.Notify.BlockInvalid"));
+      ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Notify.BlockInvalid"));
       return;
     }
     await activate(block);
-    (_c = ui.notifications) == null ? void 0 : _c.info(game.i18n.localize("VEILED_ROLLS.Notify.Activated"));
+    ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Notify.Activated"));
   }
   static async onExportOne(_event, target) {
-    var _a;
-    const id = (_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id;
+    const id = target?.dataset?.id;
     if (!id) return;
     const data = await exportLibrary([id]);
     foundry.utils.saveDataToFile(
@@ -1925,19 +2136,18 @@ const _BlockLibrary = class _BlockLibrary extends HandlebarsApplicationMixin$1(A
     );
   }
   static async onImport() {
-    var _a, _b, _c, _d;
     const text = await readJsonFile();
     if (!text) return;
     const strategy = await pickStrategy();
     if (!strategy) return;
     const result = await importLibrary(text, strategy);
     if (!result.ok) {
-      const key = ((_b = (_a = result.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.messageKey) ?? "VEILED_ROLLS.Import.Malformed";
-      (_c = ui.notifications) == null ? void 0 : _c.error(game.i18n.localize(key));
+      const key = result.errors?.[0]?.messageKey ?? "VEILED_ROLLS.Import.Malformed";
+      ui.notifications?.error(game.i18n.localize(key));
       return;
     }
     const s = result.summary ?? { added: 0, replaced: 0, skipped: 0, duplicated: 0 };
-    (_d = ui.notifications) == null ? void 0 : _d.info(
+    ui.notifications?.info(
       game.i18n.format("VEILED_ROLLS.Import.Summary", {
         imported: s.added + s.replaced + s.duplicated,
         skipped: s.skipped
@@ -1945,34 +2155,7 @@ const _BlockLibrary = class _BlockLibrary extends HandlebarsApplicationMixin$1(A
     );
     void this.render();
   }
-};
-__publicField(_BlockLibrary, "instance", null);
-__publicField(_BlockLibrary, "DEFAULT_OPTIONS", {
-  id: "veiled-rolls-block-library",
-  classes: ["veiled-rolls", "veiled-rolls-library"],
-  tag: "section",
-  window: {
-    title: "VEILED_ROLLS.Library.Title",
-    icon: "fa-solid fa-book",
-    resizable: true
-  },
-  position: { width: 720, height: 600 },
-  actions: {
-    create: _BlockLibrary.onCreate,
-    edit: _BlockLibrary.onEdit,
-    duplicate: _BlockLibrary.onDuplicate,
-    remove: _BlockLibrary.onDelete,
-    activate: _BlockLibrary.onActivate,
-    exportOne: _BlockLibrary.onExportOne,
-    exportAll: _BlockLibrary.onExportAll,
-    importBlocks: _BlockLibrary.onImport,
-    search: _BlockLibrary.onSearch
-  }
-});
-__publicField(_BlockLibrary, "PARTS", {
-  body: { template: `modules/${MODULE_ID}/templates/block-library.hbs` }
-});
-let BlockLibrary = _BlockLibrary;
+}
 async function pickStrategy() {
   const choice = await foundry.applications.api.DialogV2.wait({
     window: { title: game.i18n.localize("VEILED_ROLLS.Import.StrategyTitle") },
@@ -1995,159 +2178,298 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 function shortTime(value) {
   if (value === null) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleTimeString();
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
-const _ControlPanel = class _ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
-  constructor() {
-    super(...arguments);
-    /** Cache of the recent history for action handlers to read by id. */
-    __publicField(this, "recent", []);
-    /** Folder names the GM has collapsed, to keep a long list readable. */
-    __publicField(this, "collapsedFolders", /* @__PURE__ */ new Set());
-  }
+function shortDateTime(value) {
+  if (value === null) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return `${date.toLocaleDateString()} ${shortTime(value)}`;
+}
+function userName(id) {
+  return game.users?.get(id)?.name ?? id;
+}
+function escapeText(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function plain(html) {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+class ControlPanel extends HandlebarsApplicationMixin(ApplicationV2) {
+  static instance = null;
+  static DEFAULT_OPTIONS = {
+    id: "veiled-rolls-control-panel",
+    classes: ["veiled-rolls", "veiled-rolls-panel"],
+    tag: "section",
+    window: {
+      title: "VEILED_ROLLS.Panel.Title",
+      icon: "fa-solid fa-mask",
+      resizable: true
+    },
+    position: { width: 560, height: 680 }
+  };
+  static PARTS = {
+    body: { template: `modules/${MODULE_ID}/templates/control-panel.hbs` }
+  };
+  /** Current view. */
+  view = "todo";
+  /** Folder names the GM has collapsed, per view, to keep long lists readable. */
+  collapsedFolders = /* @__PURE__ */ new Set();
+  /** Cache of history shown, for action handlers to read by id. */
+  recent = [];
+  /** Cache of blocks, for personal-response hints in the player picker. */
+  blocks = [];
   /** Open (or bring to front) the singleton panel. */
   static open() {
-    _ControlPanel.instance ?? (_ControlPanel.instance = new _ControlPanel());
-    void _ControlPanel.instance.render({ force: true });
+    ControlPanel.instance ??= new ControlPanel();
+    void ControlPanel.instance.render({ force: true });
   }
   /** Re-render the panel if it is currently open. */
   static refresh() {
-    var _a;
-    if ((_a = _ControlPanel.instance) == null ? void 0 : _a.rendered) void _ControlPanel.instance.render();
+    if (ControlPanel.instance?.rendered) void ControlPanel.instance.render();
   }
   async _prepareContext() {
-    var _a, _b, _c;
     const state = getState();
-    const activeBlock = state.blockId ? await getBlock(state.blockId) : void 0;
-    this.recent = await getRecentHistory(20);
     const history = await getHistory();
-    const doneSet = new Set(history.map((h) => `${h.blockId}|${h.rollType}|${h.key}`));
+    const done = await getDone();
     const pendingKeys = outstandingSelectorIds();
     const noFolder = game.i18n.localize("VEILED_ROLLS.Panel.NoFolder");
-    const all = await getBlocks();
-    const groups = /* @__PURE__ */ new Map();
-    let remaining = 0;
-    for (const block of all) {
+    this.blocks = await getBlocks();
+    const resultsByRoll = /* @__PURE__ */ new Map();
+    for (const h of history) {
+      const id = rollId(h.blockId, h.rollType, h.key);
+      const list = resultsByRoll.get(id) ?? [];
+      list.unshift(h);
+      resultsByRoll.set(id, list);
+    }
+    const rows = [];
+    for (const block of this.blocks) {
       const valid = validateBlock(block).valid;
-      const folder = ((_a = block.folder) == null ? void 0 : _a.trim()) || noFolder;
       const isActiveBlock = state.active && state.blockId === block.id;
       for (const s of block.selectors) {
-        const done = doneSet.has(`${block.id}|${s.roll_type}|${s.key}`);
+        const id = rollId(block.id, s.roll_type, s.key);
         const requested = isActiveBlock && pendingKeys.has(`${s.roll_type}|${s.key}`);
-        const status = requested ? "requested" : done ? "done" : "todo";
-        if (status !== "done") remaining += 1;
-        const rolls = groups.get(folder) ?? [];
-        rolls.push({
+        const doneAt = done[id];
+        const status = requested ? "requested" : doneAt !== void 0 ? "done" : "todo";
+        const branch = block.branches.find((b) => b.id === s.branch_id);
+        const results = (resultsByRoll.get(id) ?? []).filter((h) => doneAt === void 0 || h.timestamp >= doneAt - 5e3).slice(0, 8).map((h) => ({
+          actorName: h.actorName,
+          total: h.total,
+          personal: Boolean(h.personal),
+          preview: plain(h.responseParagraphs.join(" "))
+        }));
+        rows.push({
+          id,
           blockId: block.id,
           blockName: block.name || game.i18n.localize("VEILED_ROLLS.Library.Unnamed"),
+          folder: block.folder?.trim() || noFolder,
           rollType: s.roll_type,
           key: s.key,
-          label: ((_b = s.label) == null ? void 0 : _b.trim()) || getKeyLabel(s.roll_type, s.key),
+          label: s.label?.trim() || getKeyLabel(s.roll_type, s.key),
           valid,
           status,
-          statusLabel: game.i18n.localize(`VEILED_ROLLS.RollStatus.${status}`),
-          isDone: status === "done",
-          isRequested: status === "requested",
-          isLoaded: isActiveBlock
+          waiting: requested ? outstandingUsers(s.roll_type, s.key).map(userName).join(", ") : "",
+          personalNames: (branch?.personal_responses ?? []).map((p) => userName(p.user_id)).join(", "),
+          doneAt: doneAt !== void 0 ? shortDateTime(doneAt) : "",
+          results
         });
-        groups.set(folder, rolls);
       }
     }
-    const folders = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, rolls]) => ({
-      name,
-      collapsed: this.collapsedFolders.has(name),
-      doneCount: rolls.filter((r) => r.isDone).length,
-      total: rolls.length,
-      rolls
-    }));
+    const todoRows = rows.filter((r) => r.status !== "done").sort((a, b) => Number(b.status === "requested") - Number(a.status === "requested"));
+    const doneRows = rows.filter((r) => r.status === "done");
+    this.recent = history.slice(-100).reverse();
     const players = connectedPlayers();
     return {
-      active: state.active,
-      folders,
-      hasFolders: folders.length > 0,
-      remaining,
-      players,
+      view: this.view,
+      views: [
+        { id: "todo", label: "VEILED_ROLLS.Panel.ViewTodo", count: todoRows.length, icon: "fa-list-check" },
+        { id: "done", label: "VEILED_ROLLS.Panel.ViewDone", count: doneRows.length, icon: "fa-circle-check" },
+        { id: "history", label: "VEILED_ROLLS.Panel.ViewHistory", count: history.length, icon: "fa-clock-rotate-left" }
+      ].map((v) => ({ ...v, current: v.id === this.view })),
+      isTodo: this.view === "todo",
+      isDone: this.view === "done",
+      isHistory: this.view === "history",
+      folders: this.groupByFolder(this.view === "done" ? doneRows : todoRows),
+      hasBlocks: this.blocks.length > 0,
       hasPlayers: players.length > 0,
-      blockName: ((_c = state.descriptor) == null ? void 0 : _c.blockName) ?? (activeBlock == null ? void 0 : activeBlock.name) ?? "—",
+      connected: players.map((p) => p.name).join(", "),
+      active: state.active,
+      blockName: state.descriptor?.blockName ?? "—",
       processedCount: state.processedCount,
-      hasActiveBlock: Boolean(activeBlock),
       participants: state.participants.map((p) => ({
         actorName: p.actorName,
         status: p.status,
         statusLabel: game.i18n.localize(`VEILED_ROLLS.Status.${p.status}`),
-        total: typeof p.lastTotal === "number" ? p.lastTotal : "—",
-        lastRollAt: shortTime(p.lastRollAt)
+        total: typeof p.lastTotal === "number" ? p.lastTotal : "—"
       })),
       history: this.recent.map((h) => ({
         id: h.id,
         userName: h.userName,
         actorName: h.actorName,
         keyLabel: h.keyLabel,
+        blockName: h.blockName,
         total: h.total,
+        natural: h.naturalResult,
+        personal: Boolean(h.personal),
+        fallback: h.usedFallback,
         response: h.responseParagraphs.join(" "),
-        time: shortTime(h.timestamp)
+        time: shortDateTime(h.timestamp)
       }))
     };
   }
+  /** Group rows by folder, sorted by folder name, with progress counts. */
+  groupByFolder(rows) {
+    const groups = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      const list = groups.get(row.folder) ?? [];
+      list.push(row);
+      groups.set(row.folder, list);
+    }
+    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, list]) => ({
+      name,
+      collapsed: this.collapsedFolders.has(`${this.view}|${name}`),
+      count: list.length,
+      rolls: list.map((r) => ({
+        ...r,
+        isTodo: r.status === "todo",
+        isRequested: r.status === "requested",
+        isDone: r.status === "done",
+        statusLabel: game.i18n.localize(`VEILED_ROLLS.RollStatus.${r.status}`)
+      }))
+    }));
+  }
   /**
-   * Bind the block-row controls with direct listeners rather than the framework's
-   * `data-action` dispatch, which proved unreliable for these buttons. Listeners
-   * are re-attached on every render because the rows are rebuilt each time.
+   * Bind one delegated click listener on the window root. Buttons carry a
+   * `data-vr-action` attribute instead of the framework's `data-action`, which
+   * proved unreliable for rebuilt rows. The root survives re-renders, so the
+   * listener is attached once per element.
    */
   _onRender(_context, _options) {
     const root = this.element;
-    if (!(root == null ? void 0 : root.querySelectorAll)) return;
-    for (const el of root.querySelectorAll("[data-vr-folder]")) {
-      el.addEventListener("click", (event) => {
-        var _a, _b;
-        event.preventDefault();
-        const name = (_b = (_a = event.currentTarget) == null ? void 0 : _a.dataset) == null ? void 0 : _b.vrFolder;
-        if (!name) return;
-        if (this.collapsedFolders.has(name)) this.collapsedFolders.delete(name);
-        else this.collapsedFolders.add(name);
-        void this.render();
+    if (!root?.addEventListener || root.dataset.vrBound === "1") return;
+    root.dataset.vrBound = "1";
+    root.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-vr-action]");
+      if (!button || !root.contains(button)) return;
+      event.preventDefault();
+      void this.dispatch(button.dataset.vrAction ?? "", button.dataset).catch((error) => {
+        console.error("[veiled-rolls] panel action failed", error);
       });
-    }
-    for (const el of root.querySelectorAll("[data-vr-request]")) {
-      el.addEventListener("click", (event) => {
-        var _a, _b, _c, _d;
-        event.preventDefault();
-        const node = event.currentTarget;
-        const blockId = (_a = node == null ? void 0 : node.dataset) == null ? void 0 : _a.block;
-        const rollType = (_b = node == null ? void 0 : node.dataset) == null ? void 0 : _b.vrRequest;
-        const key = (_c = node == null ? void 0 : node.dataset) == null ? void 0 : _c.key;
-        const target = (_d = node == null ? void 0 : node.dataset) == null ? void 0 : _d.target;
-        if (!blockId || !rollType || !key || !target) return;
-        void this.dispatchRequest(blockId, rollType, key, target);
-      });
-    }
+    });
   }
-  /** Resolve the target scope (group or a player selection) and send it. */
-  async dispatchRequest(blockId, rollType, key, target) {
-    let targets;
-    if (target === "group") {
-      targets = null;
-    } else {
-      const picked = await _ControlPanel.pickPlayers();
-      if (!picked || picked.length === 0) return;
-      targets = picked;
+  /** Route a delegated click to its handler. */
+  async dispatch(action, data) {
+    const blockId = data.block ?? "";
+    const rollType = data.type;
+    const key = data.key ?? "";
+    switch (action) {
+      case "view":
+        this.view = data.view ?? "todo";
+        break;
+      case "folder": {
+        const id = `${this.view}|${data.folder ?? ""}`;
+        if (this.collapsedFolders.has(id)) this.collapsedFolders.delete(id);
+        else this.collapsedFolders.add(id);
+        break;
+      }
+      case "requestGroup":
+        if (rollType) await this.request(blockId, rollType, key, null);
+        break;
+      case "requestPlayers":
+        if (rollType) {
+          const picked = await this.pickPlayers(blockId, rollType, key);
+          if (!picked) return;
+          await this.request(blockId, rollType, key, picked);
+        }
+        break;
+      case "markDone":
+        if (rollType) await markDone(blockId, rollType, key);
+        break;
+      case "markTodo":
+        if (rollType) await unmarkDone(blockId, rollType, key);
+        break;
+      case "edit": {
+        const block = await getBlock(blockId);
+        if (block) openBlockEditor(block);
+        return;
+      }
+      case "create":
+        openBlockEditor(newBlockTemplate());
+        return;
+      case "openLibrary":
+        openBlockLibrary();
+        return;
+      case "disable":
+        resetRequests();
+        await disable();
+        break;
+      case "resetParticipants":
+        await resetParticipants();
+        break;
+      case "newSession":
+        if (!await this.confirm("NewSession", "NewSessionConfirm")) return;
+        resetRequests();
+        await disable();
+        await resetParticipants();
+        await clearDone();
+        this.view = "todo";
+        break;
+      case "resend": {
+        const entry = this.recent.find((h) => h.id === data.id);
+        if (!entry) return;
+        await resendHistory(entry);
+        ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Notify.Resent"));
+        return;
+      }
+      case "copy": {
+        const entry = this.recent.find((h) => h.id === data.id);
+        if (!entry) return;
+        try {
+          await navigator.clipboard.writeText(entry.responseParagraphs.map(plain).join("\n\n"));
+          ui.notifications?.info(game.i18n.localize("VEILED_ROLLS.Notify.Copied"));
+        } catch {
+          ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Notify.CopyFailed"));
+        }
+        return;
+      }
+      case "clearHistory":
+        if (!await this.confirm("ClearHistory", "ClearHistoryConfirm")) return;
+        await clearHistory();
+        break;
+      default:
+        return;
     }
-    await this.request(blockId, rollType, key, targets);
+    void this.render();
+  }
+  /** Yes/no confirmation using two Panel.* i18n keys. */
+  async confirm(titleKey, bodyKey) {
+    return Boolean(
+      await foundry.applications.api.DialogV2.confirm({
+        window: { title: game.i18n.localize(`VEILED_ROLLS.Panel.${titleKey}`) },
+        content: `<p>${game.i18n.localize(`VEILED_ROLLS.Panel.${bodyKey}`)}</p>`
+      })
+    );
   }
   /**
-   * Prompt the GM to pick one or more connected players. Returns the chosen user
-   * ids, or null if cancelled or no players are connected.
+   * Prompt the GM to pick one or more connected players. Players with a
+   * personal response on this roll are flagged. Returns the chosen user ids, or
+   * null if cancelled or nobody is connected.
    */
-  static async pickPlayers() {
-    var _a;
+  async pickPlayers(blockId, rollType, key) {
     const players = connectedPlayers();
     if (players.length === 0) {
-      (_a = ui.notifications) == null ? void 0 : _a.warn(game.i18n.localize("VEILED_ROLLS.Panel.RequestNoPlayers"));
+      ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Panel.RequestNoPlayers"));
       return null;
     }
-    const rows = players.map(
-      (p) => `<label class="veiled-rolls-pick"><input type="checkbox" name="vr-player" value="${p.id}" checked /> ${p.name}</label>`
-    ).join("");
+    const block = this.blocks.find((b) => b.id === blockId);
+    const selector = block?.selectors.find((s) => s.roll_type === rollType && s.key === key);
+    const branch = block?.branches.find((b) => b.id === selector?.branch_id);
+    const personal = new Set((branch?.personal_responses ?? []).map((p) => p.user_id));
+    const personalHint = game.i18n.localize("VEILED_ROLLS.Panel.HasPersonal");
+    const rows = players.map((p) => {
+      const flag = personal.has(p.id) ? ` <i class="fa-solid fa-user-secret" title="${personalHint}" aria-label="${personalHint}"></i>` : "";
+      return `<label class="veiled-rolls-pick"><input type="checkbox" name="vr-player" value="${p.id}" /> ${escapeText(p.name)}${flag}</label>`;
+    }).join("");
     const chosen = await foundry.applications.api.DialogV2.wait({
       window: { title: game.i18n.localize("VEILED_ROLLS.Panel.PickPlayers") },
       content: `<div class="veiled-rolls-pick-list">${rows}</div>`,
@@ -2157,26 +2479,29 @@ const _ControlPanel = class _ControlPanel extends HandlebarsApplicationMixin(App
           label: game.i18n.localize("VEILED_ROLLS.Panel.PickConfirm"),
           default: true,
           callback: (_event, button, dialog) => {
-            var _a2;
-            const host = (dialog == null ? void 0 : dialog.element) ?? (button == null ? void 0 : button.form);
-            const boxes = ((_a2 = host == null ? void 0 : host.querySelectorAll) == null ? void 0 : _a2.call(host, 'input[name="vr-player"]:checked')) ?? [];
+            const host = dialog?.element ?? button?.form;
+            const boxes = host?.querySelectorAll?.('input[name="vr-player"]:checked') ?? [];
             return Array.from(boxes).map((b) => b.value);
           }
         },
         { action: "cancel", label: game.i18n.localize("VEILED_ROLLS.Editor.Cancel") }
       ]
     }).catch(() => null);
-    return Array.isArray(chosen) ? chosen : null;
+    if (!Array.isArray(chosen)) return null;
+    if (chosen.length === 0) {
+      ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Panel.PickNone"));
+      return null;
+    }
+    return chosen;
   }
   /** Ensure the roll's block is active, then send the request. */
   async request(blockId, rollType, key, targets) {
-    var _a;
     const state = getState();
     if (!state.active || state.blockId !== blockId) {
       const block = await getBlock(blockId);
       if (!block) return;
       if (!validateBlock(block).valid) {
-        (_a = ui.notifications) == null ? void 0 : _a.warn(game.i18n.localize("VEILED_ROLLS.Notify.BlockInvalid"));
+        ui.notifications?.warn(game.i18n.localize("VEILED_ROLLS.Notify.BlockInvalid"));
         return;
       }
       resetRequests();
@@ -2184,101 +2509,7 @@ const _ControlPanel = class _ControlPanel extends HandlebarsApplicationMixin(App
     }
     requestRoll(rollType, key, targets);
   }
-  /**
-   * Start a new session: disable the filter, reset participants and clear the
-   * history. Clearing history is what resets every roll's "done" colour, giving
-   * a clean slate to replay prepared blocks in the next session.
-   */
-  static async onNewSession() {
-    const ok = await foundry.applications.api.DialogV2.confirm({
-      window: { title: game.i18n.localize("VEILED_ROLLS.Panel.NewSession") },
-      content: `<p>${game.i18n.localize("VEILED_ROLLS.Panel.NewSessionConfirm")}</p>`
-    });
-    if (!ok) return;
-    resetRequests();
-    await disable();
-    await resetParticipants();
-    await clearHistory();
-    _ControlPanel.refresh();
-  }
-  /** Find a cached history entry by id. */
-  entry(id) {
-    return this.recent.find((h) => h.id === id);
-  }
-  static onOpenLibrary() {
-    openBlockLibrary();
-  }
-  static async onOpenActive() {
-    const state = getState();
-    if (!state.blockId) return;
-    const block = await getBlock(state.blockId);
-    if (block) openBlockEditor(block);
-  }
-  static async onDisable() {
-    resetRequests();
-    await disable();
-    _ControlPanel.refresh();
-  }
-  static async onReset() {
-    await resetParticipants();
-    _ControlPanel.refresh();
-  }
-  static async onResend(_event, target) {
-    var _a, _b;
-    const id = (_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id;
-    const entry = id ? this.entry(id) : void 0;
-    if (!entry) return;
-    await resendHistory(entry);
-    (_b = ui.notifications) == null ? void 0 : _b.info(game.i18n.localize("VEILED_ROLLS.Notify.Resent"));
-  }
-  static async onCopy(_event, target) {
-    var _a, _b, _c;
-    const id = (_a = target == null ? void 0 : target.dataset) == null ? void 0 : _a.id;
-    const entry = id ? this.entry(id) : void 0;
-    if (!entry) return;
-    try {
-      await navigator.clipboard.writeText(entry.responseParagraphs.join("\n\n"));
-      (_b = ui.notifications) == null ? void 0 : _b.info(game.i18n.localize("VEILED_ROLLS.Notify.Copied"));
-    } catch {
-      (_c = ui.notifications) == null ? void 0 : _c.warn(game.i18n.localize("VEILED_ROLLS.Notify.CopyFailed"));
-    }
-  }
-  static async onClearHistory() {
-    const ok = await foundry.applications.api.DialogV2.confirm({
-      window: { title: game.i18n.localize("VEILED_ROLLS.Panel.ClearHistory") },
-      content: `<p>${game.i18n.localize("VEILED_ROLLS.Panel.ClearHistoryConfirm")}</p>`
-    });
-    if (!ok) return;
-    await clearHistory();
-    _ControlPanel.refresh();
-  }
-};
-__publicField(_ControlPanel, "instance", null);
-__publicField(_ControlPanel, "DEFAULT_OPTIONS", {
-  id: "veiled-rolls-control-panel",
-  classes: ["veiled-rolls", "veiled-rolls-panel"],
-  tag: "section",
-  window: {
-    title: "VEILED_ROLLS.Panel.Title",
-    icon: "fa-solid fa-mask",
-    resizable: true
-  },
-  position: { width: 520, height: "auto" },
-  actions: {
-    openLibrary: _ControlPanel.onOpenLibrary,
-    openActive: _ControlPanel.onOpenActive,
-    disableFilter: _ControlPanel.onDisable,
-    resetParticipants: _ControlPanel.onReset,
-    newSession: _ControlPanel.onNewSession,
-    resend: _ControlPanel.onResend,
-    copyResponse: _ControlPanel.onCopy,
-    clearHistory: _ControlPanel.onClearHistory
-  }
-});
-__publicField(_ControlPanel, "PARTS", {
-  body: { template: `modules/${MODULE_ID}/templates/control-panel.hbs` }
-});
-let ControlPanel = _ControlPanel;
+}
 function openControlPanel() {
   ControlPanel.open();
 }
@@ -2301,7 +2532,6 @@ Hooks.once("init", () => {
   );
 });
 Hooks.once("ready", () => {
-  var _a;
   registerSocket(processFilteredRoll);
   registerRollRequestHandler(handleRollRequest);
   for (const [hook, rollType] of PRE_HOOKS) {
@@ -2320,24 +2550,27 @@ Hooks.once("ready", () => {
       });
     });
   }
-  const module = (_a = game.modules) == null ? void 0 : _a.get(MODULE_ID);
+  const module = game.modules?.get(MODULE_ID);
   if (module) {
     module.api = createApi({ openControlPanel, openBlockLibrary });
   }
+  Hooks.on("updateJournalEntry", (journal) => {
+    if (journal?.getFlag?.(MODULE_ID, "store") !== true) return;
+    ControlPanel.refresh();
+    BlockLibrary.refresh();
+  });
   Hooks.on("updateSetting", (setting) => {
-    var _a2, _b, _c;
-    if ((setting == null ? void 0 : setting.key) === `${MODULE_ID}.${SETTINGS.activeFilter}`) {
+    if (setting?.key === `${MODULE_ID}.${SETTINGS.activeFilter}`) {
       ControlPanel.refresh();
       BlockLibrary.refresh();
-      if ((_a2 = game.user) == null ? void 0 : _a2.isGM) void ((_c = (_b = ui.hotbar) == null ? void 0 : _b.render) == null ? void 0 : _c.call(_b));
+      if (game.user?.isGM) void ui.hotbar?.render?.();
     }
   });
 });
 Hooks.on("renderHotbar", (_app, element) => {
-  var _a;
-  if (!((_a = game.user) == null ? void 0 : _a.isGM)) return;
+  if (!game.user?.isGM) return;
   try {
-    const root = (element == null ? void 0 : element[0]) ?? (element instanceof HTMLElement ? element : null);
+    const root = element?.[0] ?? (element instanceof HTMLElement ? element : null);
     if (!root) return;
     if (root.querySelector(".veiled-rolls-hotbar-button")) return;
     const button = document.createElement("button");
@@ -2358,8 +2591,7 @@ Hooks.on("renderHotbar", (_app, element) => {
   }
 });
 Hooks.on("getSceneControlButtons", (controls) => {
-  var _a;
-  if (!((_a = game.user) == null ? void 0 : _a.isGM)) return;
+  if (!game.user?.isGM) return;
   const active = getState().active;
   const tool = {
     name: "veiled-rolls",
@@ -2374,10 +2606,10 @@ Hooks.on("getSceneControlButtons", (controls) => {
   try {
     if (Array.isArray(controls)) {
       const tokens = controls.find((c) => c.name === "token");
-      if (tokens == null ? void 0 : tokens.tools) tokens.tools.push(tool);
+      if (tokens?.tools) tokens.tools.push(tool);
     } else if (controls && typeof controls === "object") {
       const tokens = controls.tokens ?? controls.token;
-      if (tokens == null ? void 0 : tokens.tools) tokens.tools[tool.name] = tool;
+      if (tokens?.tools) tokens.tools[tool.name] = tool;
     }
   } catch (error) {
     console.error("[veiled-rolls] could not add scene control", error);

@@ -3,7 +3,7 @@
     <div class="veiled-rolls-search">
       <label for="vr-search" class="veiled-rolls-sr-only">{{localize "VEILED_ROLLS.Library.Search"}}</label>
       <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-      <input id="vr-search" type="search" name="search" data-action="search"
+      <input id="vr-search" type="search" name="search" autocomplete="off"
              value="{{query}}" placeholder="{{localize "VEILED_ROLLS.Library.SearchPlaceholder"}}" />
     </div>
     <div class="veiled-rolls-toolbar-actions">
@@ -33,14 +33,14 @@
     </thead>
     <tbody>
       {{#each rows}}
-      <tr>
+      <tr data-search="{{this.search}}">
         <td>
           {{#unless this.valid}}<i class="fa-solid fa-triangle-exclamation veiled-rolls-warn"
             title="{{localize "VEILED_ROLLS.Library.HasError"}}" aria-label="{{localize "VEILED_ROLLS.Library.HasError"}}"></i> {{/unless}}
           {{this.name}}
         </td>
         <td>{{this.folder}}</td>
-        <td>{{this.rolls}}</td>
+        <td>{{this.rolls}}{{#if this.personal}} <i class="fa-solid fa-user-secret" title="{{localize "VEILED_ROLLS.Library.HasPersonal"}}"></i>{{/if}}</td>
         <td>{{this.mode}}</td>
         <td>{{this.updated}}</td>
         <td class="veiled-rolls-row-actions">

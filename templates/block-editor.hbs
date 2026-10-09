@@ -6,177 +6,169 @@
   </div>
   {{/if}}
 
-  <nav class="veiled-rolls-tabs" role="tablist">
-    {{#each tabs}}
-    <button type="button" role="tab" class="veiled-rolls-tab {{#if (veiledEq this.id ../tab)}}is-active{{/if}}"
-            data-tab-id="{{this.id}}" aria-selected="{{#if (veiledEq this.id ../tab)}}true{{else}}false{{/if}}">
-      {{localize this.label}}
-    </button>
-    {{/each}}
-  </nav>
+  {{!-- 1. What is it --}}
+  <section class="vr-ed-head">
+    <label class="vr-grow">{{localize "VEILED_ROLLS.Editor.Name"}}
+      <input type="text" name="name" value="{{block.name}}" required
+             placeholder="{{localize "VEILED_ROLLS.Editor.NamePlaceholder"}}" />
+    </label>
+    <label>{{localize "VEILED_ROLLS.Editor.Folder"}}
+      <input type="text" name="folder" value="{{block.folder}}" list="vr-folders"
+             placeholder="{{localize "VEILED_ROLLS.Editor.FolderPlaceholder"}}" />
+      <datalist id="vr-folders">{{#each folders}}<option value="{{this}}"></option>{{/each}}</datalist>
+    </label>
+  </section>
 
-  <div class="veiled-rolls-tab-body">
-    {{!-- GENERAL --}}
-    {{#if (veiledEq tab "general")}}
-    <section class="veiled-rolls-form-grid">
-      <label>{{localize "VEILED_ROLLS.Editor.Name"}}
-        <input type="text" name="name" value="{{block.name}}" required />
+  {{!-- 2. One card per roll --}}
+  {{#each cards}}
+  <fieldset class="vr-card">
+    <legend>
+      <span class="vr-card-number">{{number}}</span>
+      {{#if title}}{{title}}{{else}}{{localize "VEILED_ROLLS.Editor.NewRoll"}}{{/if}}
+    </legend>
+
+    <div class="vr-card-roll">
+      <label>{{localize "VEILED_ROLLS.Editor.RollType"}}
+        <select name="card-{{index}}-type" data-vr-refresh>
+          {{#each rollTypes}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
       </label>
-      <label>{{localize "VEILED_ROLLS.Editor.Folder"}}
-        <input type="text" name="folder" value="{{block.folder}}" />
+      <label class="vr-grow">{{localize "VEILED_ROLLS.Editor.Key"}}
+        <select name="card-{{index}}-key" data-vr-refresh>
+          <option value="">—</option>
+          {{#each keyChoices}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+          {{/each}}
+        </select>
       </label>
-      <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.Description"}}
-        <textarea name="description" rows="3">{{block.description}}</textarea>
+      <label class="vr-grow">{{localize "VEILED_ROLLS.Editor.SelectorLabel"}}
+        <input type="text" name="card-{{index}}-label" value="{{label}}"
+               placeholder="{{#if autoLabel}}{{autoLabel}}{{else}}{{localize "VEILED_ROLLS.Editor.LabelPlaceholder"}}{{/if}}" />
       </label>
+      <span class="vr-card-tools">
+        <button type="button" class="veiled-rolls-icon" data-vr-action="duplicateCard" data-card="{{index}}"
+                title="{{localize "VEILED_ROLLS.Editor.DuplicateRoll"}}" aria-label="{{localize "VEILED_ROLLS.Editor.DuplicateRoll"}}">
+          <i class="fa-solid fa-clone" aria-hidden="true"></i>
+        </button>
+        {{#if canRemove}}
+        <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-vr-action="removeCard" data-card="{{index}}"
+                title="{{localize "VEILED_ROLLS.Editor.RemoveRoll"}}" aria-label="{{localize "VEILED_ROLLS.Editor.RemoveRoll"}}">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        </button>
+        {{/if}}
+      </span>
+    </div>
+
+    {{!-- Tiers: everybody's answer, chosen by total --}}
+    <div class="vr-sub">
+      <p class="vr-sub-title"><i class="fa-solid fa-dice-d20" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.TiersTitle"}}
+        <span class="veiled-rolls-muted">— {{#if ../isExclusive}}{{localize "VEILED_ROLLS.Editor.TiersHintExclusive"}}{{else}}{{localize "VEILED_ROLLS.Editor.TiersHintCumulative"}}{{/if}}</span>
+      </p>
+      {{#each tiers}}
+      <div class="vr-tier">
+        <div class="vr-tier-range">
+          <input type="number" name="tier-{{../index}}-{{this.index}}-min" value="{{this.minimum}}"
+                 placeholder="−∞" aria-label="{{localize "VEILED_ROLLS.Editor.Min"}}" title="{{localize "VEILED_ROLLS.Editor.Min"}}" />
+          {{#if ../../isExclusive}}
+          <span aria-hidden="true">→</span>
+          <input type="number" name="tier-{{../index}}-{{this.index}}-max" value="{{this.maximum}}"
+                 placeholder="+∞" aria-label="{{localize "VEILED_ROLLS.Editor.Max"}}" title="{{localize "VEILED_ROLLS.Editor.Max"}}" />
+          {{else}}
+          <span class="veiled-rolls-muted">+</span>
+          {{/if}}
+          <select name="tier-{{../index}}-{{this.index}}-natural" title="{{localize "VEILED_ROLLS.Editor.Natural"}}"
+                  aria-label="{{localize "VEILED_ROLLS.Editor.Natural"}}">
+            {{#each this.naturals}}
+            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <textarea name="tier-{{../index}}-{{this.index}}-responses" rows="2"
+                  placeholder="{{localize "VEILED_ROLLS.Editor.ResponsesPlaceholder"}}"
+                  aria-label="{{localize "VEILED_ROLLS.Editor.Responses"}}">{{this.responsesText}}</textarea>
+        <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-vr-action="removeTier"
+                data-card="{{../index}}" data-index="{{this.index}}"
+                title="{{localize "VEILED_ROLLS.Editor.RemoveTier"}}" aria-label="{{localize "VEILED_ROLLS.Editor.RemoveTier"}}">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      {{/each}}
+      <button type="button" class="veiled-rolls-link" data-vr-action="addTier" data-card="{{index}}">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.AddTier"}}
+      </button>
+    </div>
+
+    {{!-- Personal responses: one player gets a fixed answer --}}
+    <div class="vr-sub vr-personal">
+      <p class="vr-sub-title"><i class="fa-solid fa-user-secret" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.PersonalTitle"}}
+        <span class="veiled-rolls-muted">— {{localize "VEILED_ROLLS.Editor.PersonalHint"}}</span>
+      </p>
+      {{#each personal}}
+      <div class="vr-personal-row">
+        <select name="pers-{{../index}}-{{this.index}}-user" aria-label="{{localize "VEILED_ROLLS.Editor.PersonalPlayer"}}">
+          <option value="">{{localize "VEILED_ROLLS.Editor.PersonalPick"}}</option>
+          {{#each this.players}}
+          <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+        <textarea name="pers-{{../index}}-{{this.index}}-text" rows="2"
+                  placeholder="{{localize "VEILED_ROLLS.Editor.PersonalPlaceholder"}}"
+                  aria-label="{{localize "VEILED_ROLLS.Editor.PersonalText"}}">{{this.response}}</textarea>
+        <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-vr-action="removePersonal"
+                data-card="{{../index}}" data-index="{{this.index}}"
+                title="{{localize "VEILED_ROLLS.Editor.RemovePersonal"}}" aria-label="{{localize "VEILED_ROLLS.Editor.RemovePersonal"}}">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      {{/each}}
+      {{#if ../hasPlayers}}
+      <button type="button" class="veiled-rolls-link" data-vr-action="addPersonal" data-card="{{index}}">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.AddPersonal"}}
+      </button>
+      {{else}}
+      <p class="veiled-rolls-muted">{{localize "VEILED_ROLLS.Editor.NoPlayers"}}</p>
+      {{/if}}
+    </div>
+
+    {{!-- Inline test --}}
+    <div class="vr-card-test">
+      <i class="fa-solid fa-flask" aria-hidden="true"></i>
+      <label class="vr-inline">{{localize "VEILED_ROLLS.Editor.TestTotal"}}
+        <input type="number" name="card-{{index}}-test-total" value="{{test.total}}" />
+      </label>
+      <label class="vr-inline">{{localize "VEILED_ROLLS.Editor.TestAs"}}
+        <select name="card-{{index}}-test-user">
+          <option value="">{{localize "VEILED_ROLLS.Editor.TestAnyone"}}</option>
+          {{#each test.players}}
+          <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <button type="button" data-vr-action="test" data-card="{{index}}">{{localize "VEILED_ROLLS.Editor.Test"}}</button>
+      {{#if test.result}}
+      <div class="veiled-rolls-test-result">{{#each test.result}}<p>{{{this}}}</p>{{/each}}</div>
+      {{/if}}
+    </div>
+  </fieldset>
+  {{/each}}
+
+  <button type="button" class="vr-add-roll" data-vr-action="addCard">
+    <i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.AddRoll"}}
+  </button>
+
+  {{!-- 3. Rarely needed settings, folded away --}}
+  <details class="vr-advanced" data-vr-advanced {{#if advancedOpen}}open{{/if}}>
+    <summary><i class="fa-solid fa-sliders" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.Advanced"}}</summary>
+    <div class="veiled-rolls-form-grid">
       <label>{{localize "VEILED_ROLLS.Editor.Mode"}}
-        <select name="mode">
+        <select name="mode" data-vr-refresh>
           {{#each modes}}
           <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
           {{/each}}
         </select>
       </label>
-    </section>
-    {{/if}}
-
-    {{!-- ROLLS --}}
-    {{#if (veiledEq tab "rolls")}}
-    <section>
-      <p class="veiled-rolls-hint">{{localize "VEILED_ROLLS.Editor.RollsHint"}}</p>
-      {{#each selectors}}
-      <fieldset class="veiled-rolls-row-fields">
-        <label>{{localize "VEILED_ROLLS.Editor.RollType"}}
-          <select name="sel-{{@index}}-roll_type" data-vr-refresh>
-            {{#each this.rollTypes}}
-            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
-            {{/each}}
-          </select>
-        </label>
-        <label>{{localize "VEILED_ROLLS.Editor.Key"}}
-          <select name="sel-{{@index}}-key">
-            <option value="">—</option>
-            {{#each this.keyChoices}}
-            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-            {{/each}}
-          </select>
-        </label>
-        <label>{{localize "VEILED_ROLLS.Editor.SelectorLabel"}}
-          <input type="text" name="sel-{{@index}}-label" value="{{this.label}}" />
-        </label>
-        <label>{{localize "VEILED_ROLLS.Editor.Branch"}}
-          <select name="sel-{{@index}}-branch_id">
-            <option value="">—</option>
-            {{#each this.branches}}
-            <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-            {{/each}}
-          </select>
-        </label>
-        <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-action="removeSelector" data-index="{{@index}}"
-                aria-label="{{localize "VEILED_ROLLS.Editor.RemoveSelector"}}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-      </fieldset>
-      {{/each}}
-      <button type="button" data-action="addSelector"><i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.AddSelector"}}</button>
-    </section>
-    {{/if}}
-
-    {{!-- RESPONSES --}}
-    {{#if (veiledEq tab "responses")}}
-    <section>
-      <p class="veiled-rolls-hint">{{localize "VEILED_ROLLS.Editor.ResponsesHint"}}</p>
-      {{#each branches}}
-      <fieldset class="veiled-rolls-branch">
-        <legend>{{localize "VEILED_ROLLS.Editor.BranchLegend"}} — {{this.displayName}}</legend>
-        <div class="veiled-rolls-row-fields">
-          <label>{{localize "VEILED_ROLLS.Editor.BranchLabel"}}
-            <input type="text" name="br-{{@index}}-label" value="{{this.label}}"
-                   placeholder="{{localize "VEILED_ROLLS.Editor.BranchLabelHint"}}" />
-          </label>
-          <label>{{localize "VEILED_ROLLS.Editor.RollType"}}
-            <select name="br-{{@index}}-roll_type" data-vr-refresh>
-              {{#each this.rollTypes}}
-              <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
-              {{/each}}
-            </select>
-          </label>
-          <label>{{localize "VEILED_ROLLS.Editor.Key"}}
-            <select name="br-{{@index}}-key">
-              <option value="">—</option>
-              {{#each this.keyChoices}}
-              <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-              {{/each}}
-            </select>
-          </label>
-          <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-action="removeBranch" data-index="{{@index}}"
-                  aria-label="{{localize "VEILED_ROLLS.Editor.RemoveBranch"}}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
-        </div>
-
-        {{#each this.tiers}}
-        <div class="veiled-rolls-tier">
-          <div class="veiled-rolls-row-fields">
-            <label>{{localize "VEILED_ROLLS.Editor.Min"}}
-              <input type="number" name="tier-{{@../index}}-{{@index}}-min" value="{{this.minimum}}" />
-            </label>
-            <label>{{localize "VEILED_ROLLS.Editor.Max"}}
-              <input type="number" name="tier-{{@../index}}-{{@index}}-max" value="{{this.maximum}}" />
-            </label>
-            <label>{{localize "VEILED_ROLLS.Editor.Natural"}}
-              <select name="tier-{{@../index}}-{{@index}}-natural">
-                {{#each ../../naturalOptions}}
-                <option value="{{this}}" {{#if (veiledEq this ../natural_roll)}}selected{{/if}}>{{localize (concat "VEILED_ROLLS.Natural." this)}}</option>
-                {{/each}}
-              </select>
-            </label>
-            <button type="button" class="veiled-rolls-icon veiled-rolls-danger" data-action="removeTier"
-                    data-branch="{{@../index}}" data-tier="{{@index}}"
-                    aria-label="{{localize "VEILED_ROLLS.Editor.RemoveTier"}}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-          </div>
-          <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.Responses"}}
-            <textarea name="tier-{{@../index}}-{{@index}}-responses" rows="2"
-                      placeholder="{{localize "VEILED_ROLLS.Editor.ResponsesPlaceholder"}}">{{this.responsesText}}</textarea>
-          </label>
-          <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.GmNote"}}
-            <input type="text" name="tier-{{@../index}}-{{@index}}-gm_note" value="{{this.gm_note}}" />
-          </label>
-        </div>
-        {{/each}}
-        <button type="button" data-action="addTier" data-index="{{@index}}">
-          <i class="fa-solid fa-plus" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.AddTier"}}
-        </button>
-      </fieldset>
-      {{/each}}
-      <button type="button" data-action="addBranch"><i class="fa-solid fa-code-branch" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.AddBranch"}}</button>
-    </section>
-    {{/if}}
-
-    {{!-- PARTICIPANTS --}}
-    {{#if (veiledEq tab "participants")}}
-    <section class="veiled-rolls-form-grid">
-      <label>{{localize "VEILED_ROLLS.Editor.ParticipantMode"}}
-        <select name="participant_mode">
-          {{#each participantModes}}
-          <option value="{{this}}" {{#if (veiledEq this ../block.options.participant_mode)}}selected{{/if}}>{{localize (concat "VEILED_ROLLS.Mode." this)}}</option>
-          {{/each}}
-        </select>
-      </label>
-      <label>{{localize "VEILED_ROLLS.Editor.DuplicatePolicy"}}
-        <select name="duplicate_policy">
-          {{#each duplicatePolicies}}
-          <option value="{{this}}" {{#if (veiledEq this ../block.options.duplicate_policy)}}selected{{/if}}>{{localize (concat "VEILED_ROLLS.Duplicate." this)}}</option>
-          {{/each}}
-        </select>
-      </label>
-      <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.ParticipantIds"}}
-        <textarea name="participant_ids" rows="3" placeholder="{{localize "VEILED_ROLLS.Editor.ParticipantIdsHint"}}">{{participantIds}}</textarea>
-      </label>
-    </section>
-    {{/if}}
-
-    {{!-- OPTIONS --}}
-    {{#if (veiledEq tab "options")}}
-    <section class="veiled-rolls-form-grid">
-      <label class="veiled-rolls-check"><input type="checkbox" name="include_gm_in_whisper" {{#if block.options.include_gm_in_whisper}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.IncludeGm"}}</label>
-      <label class="veiled-rolls-check"><input type="checkbox" name="show_total_to_gm" {{#if block.options.show_total_to_gm}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.ShowTotal"}}</label>
-      <label class="veiled-rolls-check"><input type="checkbox" name="show_result_to_player" {{#if block.options.show_result_to_player}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.ShowResultPlayer"}}</label>
-      <label class="veiled-rolls-check"><input type="checkbox" name="color_by_tier" {{#if block.options.color_by_tier}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.ColorByTier"}}</label>
       <label>{{localize "VEILED_ROLLS.Editor.DiceSoNice"}}
         <select name="dice_so_nice_mode">
           {{#each diceModes}}
@@ -184,50 +176,68 @@
           {{/each}}
         </select>
       </label>
+
+      <label class="veiled-rolls-check"><input type="checkbox" name="show_result_to_player" {{#if block.options.show_result_to_player}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.ShowResultPlayer"}}</label>
+      <label class="veiled-rolls-check"><input type="checkbox" name="color_by_tier" {{#if block.options.color_by_tier}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.ColorByTier"}}</label>
+      <label class="veiled-rolls-check"><input type="checkbox" name="include_gm_in_whisper" {{#if block.options.include_gm_in_whisper}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.IncludeGm"}}</label>
+      <label class="veiled-rolls-check"><input type="checkbox" name="show_total_to_gm" {{#if block.options.show_total_to_gm}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.ShowTotal"}}</label>
       <label class="veiled-rolls-check"><input type="checkbox" name="randomize_equal_tier_responses" {{#if block.options.randomize_equal_tier_responses}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.Randomize"}}</label>
       <label class="veiled-rolls-check"><input type="checkbox" name="send_fallback_response" {{#if block.options.send_fallback_response}}checked{{/if}} /> {{localize "VEILED_ROLLS.Editor.SendFallback"}}</label>
       <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.Fallback"}}
         <textarea name="fallback_response" rows="2">{{block.options.fallback_response}}</textarea>
       </label>
+
+      <label>{{localize "VEILED_ROLLS.Editor.ParticipantMode"}}
+        <select name="participant_mode" data-vr-refresh>
+          {{#each participantModes}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label>{{localize "VEILED_ROLLS.Editor.DuplicatePolicy"}}
+        <select name="duplicate_policy">
+          {{#each duplicatePolicies}}
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
+          {{/each}}
+        </select>
+      </label>
+      {{#if showUserPicker}}
+      <div class="veiled-rolls-full vr-checklist">
+        {{#each participantPlayers}}
+        <label class="veiled-rolls-check"><input type="checkbox" name="participant_user" value="{{this.id}}" {{#if this.checked}}checked{{/if}} /> {{this.name}}</label>
+        {{else}}
+        <p class="veiled-rolls-muted">{{localize "VEILED_ROLLS.Editor.NoPlayers"}}</p>
+        {{/each}}
+      </div>
+      {{/if}}
+      {{#if showIdList}}
+      <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.ParticipantIds"}}
+        <textarea name="participant_ids" rows="2" placeholder="{{localize "VEILED_ROLLS.Editor.ParticipantIdsHint"}}">{{participantIdsText}}</textarea>
+      </label>
+      <button type="button" class="veiled-rolls-full" data-vr-action="useSelection">
+        <i class="fa-solid fa-object-group" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.UseSelection"}}
+      </button>
+      {{/if}}
+
       <label>{{localize "VEILED_ROLLS.Editor.AutoClose"}}
         <select name="auto_close_mode">
           {{#each autoCloseModes}}
-          <option value="{{this}}" {{#if (veiledEq this ../block.options.auto_close_mode)}}selected{{/if}}>{{localize (concat "VEILED_ROLLS.AutoClose." this)}}</option>
+          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{localize this.label}}</option>
           {{/each}}
         </select>
       </label>
       <label>{{localize "VEILED_ROLLS.Editor.AutoCloseCount"}}
         <input type="number" name="auto_close_roll_count" min="1" value="{{block.options.auto_close_roll_count}}" />
       </label>
-    </section>
-    {{/if}}
-  </div>
-
-  <section class="veiled-rolls-test">
-    <h3>{{localize "VEILED_ROLLS.Editor.TestTitle"}}</h3>
-    <div class="veiled-rolls-row-fields">
-      <label>{{localize "VEILED_ROLLS.Editor.TestSelector"}}
-        <select name="test_selector">
-          {{#each testChoices}}
-          <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-          {{/each}}
-        </select>
+      <label class="veiled-rolls-full">{{localize "VEILED_ROLLS.Editor.Description"}}
+        <textarea name="description" rows="2">{{block.description}}</textarea>
       </label>
-      <label>{{localize "VEILED_ROLLS.Editor.TestTotal"}}
-        <input type="number" name="test_total" value="{{testTotal}}" />
-      </label>
-      <button type="button" data-action="test"><i class="fa-solid fa-flask" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.Test"}}</button>
     </div>
-    {{#if testResult}}
-    <div class="veiled-rolls-test-result">
-      {{#each testResult}}<p>{{this}}</p>{{/each}}
-    </div>
-    {{/if}}
-  </section>
+  </details>
 
   <footer class="veiled-rolls-editor-footer">
-    <button type="button" data-action="cancel">{{localize "VEILED_ROLLS.Editor.Cancel"}}</button>
-    <button type="button" data-action="saveActivate"><i class="fa-solid fa-bolt" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.SaveActivate"}}</button>
-    <button type="button" class="veiled-rolls-primary" data-action="save"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.Save"}}</button>
+    <button type="button" data-vr-action="cancel">{{localize "VEILED_ROLLS.Editor.Cancel"}}</button>
+    <button type="button" data-vr-action="saveActivate"><i class="fa-solid fa-bolt" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.SaveActivate"}}</button>
+    <button type="button" class="veiled-rolls-primary" data-vr-action="save"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> {{localize "VEILED_ROLLS.Editor.Save"}}</button>
   </footer>
 </div>

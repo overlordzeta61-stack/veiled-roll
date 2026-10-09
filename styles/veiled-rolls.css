@@ -1,24 +1,60 @@
 /*
  * Veiled Rolls styles.
- * All rules are scoped under .veiled-rolls to avoid leaking into Foundry or
- * other modules. Foundry CSS variables are used where possible so the module
- * inherits the active (light/dark) theme instead of imposing its own palette.
+ *
+ * Everything is scoped under .veiled-rolls (or a veiled-rolls-* class for the
+ * chat cards, hotbar button and dialogs rendered outside our windows). The
+ * palette mirrors Campaign Scriptorium: vellum text, verdigris accent, brass for
+ * "done", rust for danger, subtle 4px corners. Status colours are always paired
+ * with an icon or a label, never used alone.
  */
 
+/* ------------------------------------------------------------------------ */
+/*  Tokens                                                                   */
+/* ------------------------------------------------------------------------ */
+.veiled-rolls {
+  --vr-slate-900: #14161c;
+  --vr-slate-800: #1b1e26;
+  --vr-slate-700: #242833;
+  --vr-slate-600: #333846;
+  --vr-vellum: #ded5c0;
+  --vr-vellum-dim: #9a9484;
+  --vr-verdigris: #6fae9d;
+  --vr-verdigris-deep: #3d6b60;
+  --vr-brass: #c9a227;
+  --vr-rust: #c0584b;
+  --vr-violet: #a98bd6;
+  --vr-radius: 4px;
+}
+
+.theme-light .veiled-rolls,
+.veiled-rolls.theme-light {
+  --vr-slate-900: #ece7db;
+  --vr-slate-800: #f4f0e6;
+  --vr-slate-700: #ffffff;
+  --vr-slate-600: #cdc5b4;
+  --vr-vellum: #23252c;
+  --vr-vellum-dim: #5f5a4f;
+  --vr-verdigris: #2f7a68;
+  --vr-verdigris-deep: #2c5148;
+  --vr-brass: #9a7a12;
+  --vr-rust: #a34a3f;
+  --vr-violet: #6b4fa0;
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Base                                                                     */
+/* ------------------------------------------------------------------------ */
 .veiled-rolls .veiled-rolls-root {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.7rem;
   padding: 0.5rem;
   max-height: 100%;
   overflow: auto;
+  color: var(--vr-vellum);
 }
 
-/*
- * In a scrolling flex column, children shrink below their natural height by
- * default, which made sections overlap once the form grew. Pinning the basis
- * keeps every section at its content height and lets the root scroll instead.
- */
+/* Keep sections at their content height; the root scrolls instead. */
 .veiled-rolls .veiled-rolls-root > * {
   flex: 0 0 auto;
   min-height: 0;
@@ -29,76 +65,7 @@
   margin: 0;
   font-size: var(--font-size-16, 1rem);
   border: none;
-}
-
-.veiled-rolls .veiled-rolls-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
-}
-
-.veiled-rolls .veiled-rolls-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 0.5rem;
-  font-size: var(--font-size-12, 0.8rem);
-  border: 1px solid var(--color-border-light-tertiary, #7a7971);
-}
-
-.veiled-rolls .veiled-rolls-badge.is-active {
-  background: rgba(60, 160, 90, 0.18);
-  border-color: rgba(60, 160, 90, 0.6);
-}
-
-.veiled-rolls .veiled-rolls-badge.is-idle {
-  opacity: 0.8;
-}
-
-.veiled-rolls .veiled-rolls-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.25rem 1rem;
-  margin: 0;
-}
-
-.veiled-rolls .veiled-rolls-fields > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
-  border-bottom: 1px dotted var(--color-border-light-tertiary, #999);
-}
-
-.veiled-rolls .veiled-rolls-fields dt {
-  font-weight: 600;
-  opacity: 0.85;
-}
-
-.veiled-rolls .veiled-rolls-fields dd {
-  margin: 0;
-  text-align: right;
-}
-
-.veiled-rolls .veiled-rolls-actions,
-.veiled-rolls .veiled-rolls-toolbar-actions,
-.veiled-rolls .veiled-rolls-history-actions,
-.veiled-rolls .veiled-rolls-editor-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-}
-
-.veiled-rolls .veiled-rolls-editor-footer {
-  justify-content: flex-end;
-  position: sticky;
-  bottom: 0;
-  background: var(--color-bg, rgba(0, 0, 0, 0.02));
-  padding-top: 0.5rem;
+  color: var(--vr-verdigris);
 }
 
 .veiled-rolls button {
@@ -108,20 +75,36 @@
   white-space: nowrap;
 }
 
+.veiled-rolls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: var(--font-size-13, 0.85rem);
+}
+
+.veiled-rolls textarea { resize: vertical; }
+
+.veiled-rolls .veiled-rolls-muted { color: var(--vr-vellum-dim); }
+.veiled-rolls .veiled-rolls-warn { color: var(--vr-brass); }
+
+.veiled-rolls .veiled-rolls-empty {
+  color: var(--vr-vellum-dim);
+  font-style: italic;
+  padding: 0.75rem 0.25rem;
+}
+
 .veiled-rolls .veiled-rolls-primary {
   font-weight: 600;
+  background: var(--vr-verdigris-deep);
+  border-color: var(--vr-verdigris);
+  color: #f3efe4;
 }
 
-.veiled-rolls .veiled-rolls-stop,
-.veiled-rolls .veiled-rolls-danger {
-  border-color: rgba(190, 60, 60, 0.7);
-  color: var(--color-text-hyperlink, #b03030);
-}
+.veiled-rolls .veiled-rolls-primary:hover { filter: brightness(1.1); }
 
-.veiled-rolls .veiled-rolls-stop:not(:disabled):hover,
-.veiled-rolls .veiled-rolls-danger:not(:disabled):hover {
-  background: rgba(190, 60, 60, 0.15);
-}
+.veiled-rolls .veiled-rolls-danger { color: var(--vr-rust); }
+.veiled-rolls .veiled-rolls-danger:not(.veiled-rolls-link) { border-color: color-mix(in srgb, var(--vr-rust) 60%, transparent); }
+.veiled-rolls .veiled-rolls-danger:not(:disabled):hover { background: color-mix(in srgb, var(--vr-rust) 15%, transparent); }
 
 .veiled-rolls .veiled-rolls-link {
   background: none;
@@ -129,81 +112,297 @@
   padding: 0.1rem 0.25rem;
   width: auto;
   cursor: pointer;
-  color: var(--color-text-hyperlink, #7a4fb0);
+  color: var(--vr-verdigris);
 }
 
+.veiled-rolls .veiled-rolls-link:hover { text-decoration: underline; box-shadow: none; }
+
 .veiled-rolls .veiled-rolls-icon {
+  flex: 0 0 auto;
   width: 1.9rem;
   height: 1.9rem;
   padding: 0;
   justify-content: center;
 }
 
-.veiled-rolls .veiled-rolls-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-13, 0.85rem);
-}
-
-.veiled-rolls .veiled-rolls-table th,
-.veiled-rolls .veiled-rolls-table td {
-  text-align: left;
-  padding: 0.25rem 0.4rem;
-  border-bottom: 1px solid var(--color-border-light-tertiary, #ccc);
-}
-
-.veiled-rolls .veiled-rolls-row-actions {
-  display: flex;
-  gap: 0.2rem;
-  justify-content: flex-end;
-}
-
-.veiled-rolls .veiled-rolls-col-actions {
-  text-align: right;
-}
-
-.veiled-rolls .veiled-rolls-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 0.4rem;
-  border: 1px solid transparent;
-  font-size: var(--font-size-12, 0.75rem);
-}
-
-.veiled-rolls .veiled-rolls-status::before {
-  content: "";
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.veiled-rolls .status-accepted { color: #2e8b57; }
-.veiled-rolls .status-duplicate { color: #b8860b; }
-.veiled-rolls .status-ignored { color: #777; }
-.veiled-rolls .status-error { color: #b03030; }
-
 .veiled-rolls .veiled-rolls-total {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   padding: 0 0.3rem;
-  border-radius: 0.3rem;
-  background: rgba(120, 120, 120, 0.18);
+  border-radius: var(--vr-radius);
+  background: color-mix(in srgb, var(--vr-vellum-dim) 22%, transparent);
 }
 
-.veiled-rolls .veiled-rolls-muted { opacity: 0.7; }
-
-.veiled-rolls .veiled-rolls-empty {
-  opacity: 0.7;
-  font-style: italic;
-  padding: 0.5rem 0;
+.veiled-rolls .veiled-rolls-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
+.veiled-rolls .veiled-rolls-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Chips and tags (Scriptorium look). */
+.veiled-rolls .cc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto;
+  padding: 0.2rem 0.6rem;
+  background: var(--vr-slate-700);
+  border: 1px solid var(--vr-slate-600);
+  border-radius: 999px;
+  color: var(--vr-vellum);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.veiled-rolls .cc-chip:hover { border-color: var(--vr-verdigris); }
+.veiled-rolls .cc-chip--primary { background: var(--vr-verdigris-deep); border-color: var(--vr-verdigris); color: #f3efe4; }
+.veiled-rolls .cc-chip--primary:hover { filter: brightness(1.1); }
+
+.veiled-rolls .cc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vr-vellum-dim);
+}
+
+.veiled-rolls .cc-tag--soft { border: 1px solid var(--vr-slate-600); }
+.veiled-rolls .cc-tag--personal { color: var(--vr-violet); border-color: var(--vr-violet); }
+
+.veiled-rolls .vr-count {
+  display: inline-block;
+  min-width: 1.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--vr-slate-600);
+  color: var(--vr-vellum);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.veiled-rolls .vr-personal-flag { color: var(--vr-violet); }
+
+/* ------------------------------------------------------------------------ */
+/*  Control panel                                                            */
+/* ------------------------------------------------------------------------ */
+.veiled-rolls .veiled-rolls-statusbar {
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--vr-radius);
+  background: var(--vr-slate-800);
+}
+
+.veiled-rolls .veiled-rolls-statusbar-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.veiled-rolls .veiled-rolls-statusbar-name {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.veiled-rolls .veiled-rolls-statusbar-actions { display: inline-flex; gap: 0.2rem; }
+
+.veiled-rolls .veiled-rolls-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--vr-slate-600);
+  color: var(--vr-vellum-dim);
+}
+
+.veiled-rolls .veiled-rolls-badge.is-active {
+  color: var(--vr-verdigris);
+  border-color: var(--vr-verdigris);
+  background: color-mix(in srgb, var(--vr-verdigris) 14%, transparent);
+}
+
+.veiled-rolls .vr-participants {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.veiled-rolls .vr-participants .status-duplicate { color: var(--vr-brass); }
+.veiled-rolls .vr-participants .status-error { color: var(--vr-rust); }
+
+.veiled-rolls .vr-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.veiled-rolls .vr-toolbar > button { width: auto; }
+.veiled-rolls .vr-toolbar-right { display: inline-flex; gap: 0.4rem; }
+
+/* View switcher: To do / Done / History. */
+.veiled-rolls .vr-views {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--vr-slate-600);
+}
+
+.veiled-rolls .vr-view {
+  flex: 1 1 0;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  border-radius: 0;
+  padding: 0.4rem 0.3rem;
+  color: var(--vr-vellum-dim);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.veiled-rolls .vr-view:hover { color: var(--vr-vellum); box-shadow: none; }
+.veiled-rolls .vr-view.is-current { color: var(--vr-vellum); }
+.veiled-rolls .vr-view--todo.is-current { border-bottom-color: var(--vr-verdigris); }
+.veiled-rolls .vr-view--done.is-current { border-bottom-color: var(--vr-brass); }
+.veiled-rolls .vr-view--history.is-current { border-bottom-color: var(--vr-vellum-dim); }
+.veiled-rolls .vr-view--done .vr-count { background: color-mix(in srgb, var(--vr-brass) 35%, var(--vr-slate-600)); }
+
+.veiled-rolls .vr-note { margin: 0 0 0.4rem; font-size: 0.8rem; }
+
+/* Folder groups. */
+.veiled-rolls .veiled-rolls-folder { margin-bottom: 0.5rem; }
+
+.veiled-rolls .veiled-rolls-folder-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--vr-slate-600);
+  border-radius: 0;
+  padding: 0.25rem 0.1rem;
+  color: var(--vr-vellum);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.veiled-rolls .veiled-rolls-folder-head:hover { color: var(--vr-verdigris); box-shadow: none; }
+.veiled-rolls .veiled-rolls-folder-name { flex: 1; text-align: left; }
+
+.veiled-rolls .veiled-rolls-request-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* One prepared roll. The left stripe + background carry the status. */
+.veiled-rolls .vr-roll {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.6rem;
+  border-radius: var(--vr-radius);
+  border-left: 4px solid var(--vr-slate-600);
+  background: var(--vr-slate-700);
+}
+
+.veiled-rolls .vr-roll.status-requested {
+  border-left-color: var(--vr-verdigris);
+  background: color-mix(in srgb, var(--vr-verdigris) 14%, var(--vr-slate-700));
+}
+
+.veiled-rolls .vr-roll.status-done {
+  border-left-color: var(--vr-brass);
+  background: color-mix(in srgb, var(--vr-brass) 9%, var(--vr-slate-700));
+}
+
+.veiled-rolls .vr-roll-main {
+  flex: 1 1 14rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.veiled-rolls .vr-roll-label { font-weight: 600; }
+.veiled-rolls .vr-roll-block { font-size: 0.75rem; }
+.veiled-rolls .vr-roll-when { font-size: 0.75rem; }
+.veiled-rolls .vr-roll-waiting { font-size: 0.78rem; color: var(--vr-verdigris); font-weight: 600; }
+.veiled-rolls .vr-roll.status-done .vr-roll-when i { color: var(--vr-brass); }
+
+.veiled-rolls .vr-roll-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.veiled-rolls .vr-roll-actions .veiled-rolls-icon { width: 1.7rem; height: 1.7rem; }
+
+.veiled-rolls .vr-results {
+  flex: 1 1 100%;
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0.3rem 0 0;
+  border-top: 1px dashed var(--vr-slate-600);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.veiled-rolls .vr-results li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.veiled-rolls .vr-results-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* History. */
 .veiled-rolls .veiled-rolls-history-list {
   list-style: none;
-  margin: 0;
+  margin: 0.4rem 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -211,24 +410,35 @@
 }
 
 .veiled-rolls .veiled-rolls-history-entry {
-  border: 1px solid var(--color-border-light-tertiary, #ccc);
-  border-radius: 0.4rem;
+  border-radius: var(--vr-radius);
+  border-left: 4px solid var(--vr-slate-600);
+  background: var(--vr-slate-700);
   padding: 0.4rem 0.5rem;
 }
+
+.veiled-rolls .veiled-rolls-history-entry.is-personal { border-left-color: var(--vr-violet); }
 
 .veiled-rolls .veiled-rolls-history-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
-  font-size: var(--font-size-12, 0.8rem);
+  font-size: 0.8rem;
 }
 
-.veiled-rolls .veiled-rolls-history-response {
-  margin: 0.3rem 0;
-}
+.veiled-rolls .vr-history-when { margin-left: auto; font-size: 0.72rem; }
+.veiled-rolls .veiled-rolls-history-response { margin: 0.3rem 0; }
+.veiled-rolls .veiled-rolls-history-response p { margin: 0 0 0.25rem; }
+.veiled-rolls .veiled-rolls-history-actions { display: flex; gap: 0.4rem; }
 
-/* Toolbar / search */
+/* Player picker dialog (rendered outside the .veiled-rolls scope). */
+.veiled-rolls-pick-list { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.25rem 0; }
+.veiled-rolls-pick { display: flex; flex-direction: row; align-items: center; gap: 0.45rem; cursor: pointer; }
+.veiled-rolls-pick .fa-user-secret { color: #a98bd6; }
+
+/* ------------------------------------------------------------------------ */
+/*  Library                                                                  */
+/* ------------------------------------------------------------------------ */
 .veiled-rolls .veiled-rolls-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -245,236 +455,206 @@
 }
 
 .veiled-rolls .veiled-rolls-search input { flex: 1; }
+.veiled-rolls .veiled-rolls-toolbar-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
-/* Editor */
-.veiled-rolls .veiled-rolls-tabs {
+.veiled-rolls .veiled-rolls-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-13, 0.85rem);
+}
+
+.veiled-rolls .veiled-rolls-table th,
+.veiled-rolls .veiled-rolls-table td {
+  text-align: left;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid var(--vr-slate-600);
+}
+
+.veiled-rolls .veiled-rolls-table tr[hidden] { display: none; }
+.veiled-rolls .veiled-rolls-row-actions { display: flex; gap: 0.2rem; justify-content: flex-end; }
+.veiled-rolls .veiled-rolls-col-actions { text-align: right; }
+.veiled-rolls .veiled-rolls-table .fa-user-secret { color: var(--vr-violet); }
+
+/* ------------------------------------------------------------------------ */
+/*  Editor (single page)                                                     */
+/* ------------------------------------------------------------------------ */
+.veiled-rolls .veiled-rolls-errors {
+  border: 1px solid color-mix(in srgb, var(--vr-rust) 60%, transparent);
+  background: color-mix(in srgb, var(--vr-rust) 12%, transparent);
+  border-radius: var(--vr-radius);
+  padding: 0.4rem 0.6rem;
+}
+
+.veiled-rolls .veiled-rolls-errors p { margin: 0 0 0.2rem; font-weight: 600; }
+.veiled-rolls .veiled-rolls-errors ul { margin: 0; padding-left: 1.2rem; }
+
+.veiled-rolls .vr-ed-head {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.veiled-rolls .vr-ed-head > label { flex: 1 1 12rem; }
+.veiled-rolls .vr-ed-head > label.vr-grow { flex: 2 1 16rem; }
+.veiled-rolls .vr-ed-head input[name="name"] { font-size: 1.05rem; font-weight: 600; }
+
+.veiled-rolls .vr-card {
+  margin: 0;
+  padding: 0.5rem 0.6rem 0.6rem;
+  border: 1px solid var(--vr-slate-600);
+  border-left: 4px solid var(--vr-verdigris);
+  border-radius: var(--vr-radius);
+  background: var(--vr-slate-800);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.veiled-rolls .vr-card > legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.3rem;
+  font-weight: 700;
+  color: var(--vr-verdigris);
+}
+
+.veiled-rolls .vr-card-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: var(--vr-verdigris-deep);
+  color: #f3efe4;
+  font-size: 0.75rem;
+}
+
+.veiled-rolls .vr-card-roll {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.4rem 0.6rem;
+}
+
+.veiled-rolls .vr-card-roll > label { flex: 0 1 9rem; }
+.veiled-rolls .vr-card-roll > label.vr-grow { flex: 1 1 10rem; }
+.veiled-rolls .vr-card-tools { display: inline-flex; gap: 0.25rem; margin-left: auto; }
+
+.veiled-rolls .vr-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--vr-slate-600);
+}
+
+.veiled-rolls .vr-sub-title { margin: 0; font-weight: 600; font-size: 0.85rem; }
+.veiled-rolls .vr-sub-title .veiled-rolls-muted { font-weight: 400; }
+.veiled-rolls .vr-sub > .veiled-rolls-link { align-self: flex-start; }
+
+.veiled-rolls .vr-tier,
+.veiled-rolls .vr-personal-row {
+  display: grid;
+  grid-template-columns: minmax(10.5rem, auto) 1fr auto;
+  gap: 0.4rem;
+  align-items: start;
+}
+
+.veiled-rolls .vr-personal-row { grid-template-columns: minmax(10rem, 13rem) 1fr auto; }
+
+.veiled-rolls .vr-tier-range {
+  display: flex;
+  align-items: center;
   gap: 0.25rem;
-  border-bottom: 1px solid var(--color-border-light-tertiary, #ccc);
+  flex-wrap: wrap;
 }
 
-.veiled-rolls .veiled-rolls-tab {
-  background: none;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 0.4rem 0.4rem 0 0;
+.veiled-rolls .vr-tier-range input[type="number"] { width: 3.6rem; text-align: center; }
+.veiled-rolls .vr-tier-range select { width: auto; font-size: 0.78rem; }
+.veiled-rolls .vr-tier textarea,
+.veiled-rolls .vr-personal-row textarea { min-height: 2.6rem; }
+
+.veiled-rolls .vr-personal .vr-sub-title i { color: var(--vr-violet); }
+.veiled-rolls .vr-personal-row { border-left: 3px solid var(--vr-violet); padding-left: 0.4rem; }
+
+.veiled-rolls .vr-card-test {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed var(--vr-slate-600);
+  font-size: 0.8rem;
+}
+
+.veiled-rolls .vr-card-test > button { width: auto; }
+.veiled-rolls .vr-inline { flex-direction: row; align-items: center; gap: 0.35rem; }
+.veiled-rolls .vr-inline input[type="number"] { width: 4rem; }
+.veiled-rolls .vr-inline select { width: auto; }
+
+.veiled-rolls .veiled-rolls-test-result {
+  flex: 1 1 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--vr-radius);
+  background: var(--vr-slate-700);
+}
+
+.veiled-rolls .veiled-rolls-test-result p { margin: 0 0 0.2rem; }
+
+.veiled-rolls .vr-add-roll {
+  justify-content: center;
+  border-style: dashed;
+}
+
+.veiled-rolls .vr-advanced {
+  border: 1px solid var(--vr-slate-600);
+  border-radius: var(--vr-radius);
   padding: 0.3rem 0.6rem;
+}
+
+.veiled-rolls .vr-advanced > summary {
   cursor: pointer;
-}
-
-.veiled-rolls .veiled-rolls-tab.is-active {
-  border-color: var(--color-border-light-tertiary, #ccc);
   font-weight: 600;
+  color: var(--vr-vellum-dim);
+  padding: 0.2rem 0;
 }
 
-.veiled-rolls .veiled-rolls-tab-body {
-  min-height: 12rem;
-  flex: 0 0 auto;
-}
+.veiled-rolls .vr-advanced[open] > summary { margin-bottom: 0.5rem; }
 
 .veiled-rolls .veiled-rolls-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.6rem;
+  gap: 0.5rem 0.75rem;
 }
 
 .veiled-rolls .veiled-rolls-full { grid-column: 1 / -1; }
+.veiled-rolls .veiled-rolls-check { flex-direction: row; align-items: center; gap: 0.4rem; }
+.veiled-rolls .vr-checklist { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
 
-.veiled-rolls label {
+.veiled-rolls .veiled-rolls-editor-footer {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: var(--font-size-13, 0.85rem);
-}
-
-.veiled-rolls .veiled-rolls-check {
-  flex-direction: row;
-  align-items: center;
+  justify-content: flex-end;
   gap: 0.4rem;
+  position: sticky;
+  bottom: 0;
+  padding: 0.5rem 0 0.1rem;
+  background: var(--vr-slate-900);
+  border-top: 1px solid var(--vr-slate-600);
 }
 
-.veiled-rolls .veiled-rolls-row-fields {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.5rem;
-  border: 1px solid var(--color-border-light-tertiary, #ddd);
-  border-radius: 0.4rem;
-  padding: 0.4rem;
-  margin-bottom: 0.4rem;
-}
+.veiled-rolls .veiled-rolls-editor-footer button { width: auto; }
 
-.veiled-rolls .veiled-rolls-branch {
-  border: 1px solid var(--color-border-light-tertiary, #ccc);
-  border-radius: 0.5rem;
-  padding: 0.5rem;
-  margin-bottom: 0.6rem;
-}
-
-.veiled-rolls .veiled-rolls-tier {
-  border-top: 1px dashed var(--color-border-light-tertiary, #ccc);
-  padding-top: 0.4rem;
-  margin-top: 0.4rem;
-}
-
-.veiled-rolls .veiled-rolls-test {
-  border-top: 1px solid var(--color-border-light-tertiary, #ccc);
-  padding-top: 0.5rem;
-}
-
-.veiled-rolls .veiled-rolls-test-result {
-  margin-top: 0.4rem;
-  padding: 0.4rem;
-  border-radius: 0.4rem;
-  background: rgba(120, 120, 120, 0.12);
-}
-
-.veiled-rolls .veiled-rolls-errors {
-  border: 1px solid rgba(190, 60, 60, 0.6);
-  background: rgba(190, 60, 60, 0.12);
-  border-radius: 0.4rem;
-  padding: 0.4rem 0.6rem;
-}
-
-.veiled-rolls .veiled-rolls-warn { color: #b8860b; }
-
-.veiled-rolls .veiled-rolls-sr-only,
-.veiled-rolls .veiled-rolls-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* Whisper card (player-facing) */
+/* ------------------------------------------------------------------------ */
+/*  Chat cards (outside our windows)                                         */
+/* ------------------------------------------------------------------------ */
 .veiled-rolls-whisper .veiled-rolls-whisper-title {
   font-weight: 600;
   opacity: 0.85;
   margin: 0 0 0.25rem;
 }
 
-.veiled-rolls-diag .veiled-rolls-diag-title {
-  font-weight: 600;
-  margin: 0 0 0.25rem;
-}
-
-.veiled-rolls-diag ul {
-  margin: 0;
-  padding-left: 1rem;
-}
-
-/*
- * Hotbar access button. Injected into Foundry's hotbar, so it lives outside the
- * .veiled-rolls scope; the class name is prefixed to keep it self-contained.
- */
-.veiled-rolls-hotbar-button {
-  flex: 0 0 auto;
-  align-self: flex-end;
-  width: 2.2rem;
-  height: 2.2rem;
-  margin: 0 0.35rem 0.2rem 0;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: 1px solid var(--color-border-dark, #000);
-  border-radius: 0.3rem;
-  background: rgba(0, 0, 0, 0.55);
-  color: var(--color-text-light-highlight, #f0f0e0);
-}
-
-.veiled-rolls-hotbar-button:hover {
-  border-color: var(--color-shadow-primary, #ff6400);
-}
-
-.veiled-rolls-hotbar-button.is-active {
-  border-color: rgba(60, 200, 110, 0.9);
-  box-shadow: 0 0 6px rgba(60, 200, 110, 0.6);
-}
-
-/* Block list inside the control panel: activate/disable without leaving it. */
-.veiled-rolls .veiled-rolls-block-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.veiled-rolls .veiled-rolls-block-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--color-border-light-tertiary, #ccc);
-  border-radius: 0.4rem;
-}
-
-.veiled-rolls .veiled-rolls-block-row.is-active {
-  border-color: rgba(60, 160, 90, 0.7);
-  background: rgba(60, 160, 90, 0.1);
-}
-
-.veiled-rolls .veiled-rolls-block-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.veiled-rolls .veiled-rolls-block-name {
-  font-weight: 600;
-}
-
-/* Pill buttons mirroring the state badge: green to start, red to stop. */
-.veiled-rolls .veiled-rolls-pill {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.15rem 0.6rem;
-  border-radius: 0.9rem;
-  font-size: var(--font-size-12, 0.8rem);
-  cursor: pointer;
-}
-
-.veiled-rolls .veiled-rolls-pill.is-go {
-  border: 1px solid rgba(60, 160, 90, 0.7);
-  color: #2e8b57;
-}
-
-.veiled-rolls .veiled-rolls-pill.is-go:not(:disabled):hover {
-  background: rgba(60, 160, 90, 0.18);
-}
-
-.veiled-rolls .veiled-rolls-pill.is-stop {
-  border: 1px solid rgba(190, 60, 60, 0.8);
-  color: #c0392b;
-}
-
-.veiled-rolls .veiled-rolls-pill.is-stop:hover {
-  background: rgba(190, 60, 60, 0.18);
-}
-
-.veiled-rolls .veiled-rolls-pill:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/*
- * Player whisper: the roller's own total and an optional success tint.
- * The card is only ever whispered to the roller and GMs, so this never exposes
- * the number to the rest of the table. Colours use a translucent left border and
- * a faint wash so they stay legible on both light and dark chat themes.
- */
 .veiled-rolls-whisper .veiled-rolls-whisper-total {
   margin: 0.4rem 0 0;
   font-variant-numeric: tabular-nums;
@@ -494,279 +674,32 @@
 .veiled-rolls-whisper.tone-4 { border-left-color: #7fae3a; background: rgba(127, 174, 58, 0.14); }
 .veiled-rolls-whisper.tone-5 { border-left-color: #2e8b57; background: rgba(46, 139, 87, 0.16); }
 
-/* Roll-request section: target chips and per-selector request buttons. */
-.veiled-rolls .veiled-rolls-request-hint {
-  margin: 0 0 0.3rem;
-}
+.veiled-rolls-diag .veiled-rolls-diag-title { font-weight: 600; margin: 0 0 0.25rem; }
+.veiled-rolls-diag ul { margin: 0; padding-left: 1rem; }
 
-.veiled-rolls .veiled-rolls-target-chips,
-.veiled-rolls .veiled-rolls-request-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.veiled-rolls .veiled-rolls-request-buttons {
-  margin-top: 0.4rem;
-}
-
-.veiled-rolls .veiled-rolls-request-scope {
-  margin: 0.3rem 0 0;
-  font-size: var(--font-size-11, 0.7rem);
-}
-
-.veiled-rolls .veiled-rolls-chip {
-  padding: 0.1rem 0.55rem;
-  border-radius: 0.9rem;
-  border: 1px solid var(--color-border-light-tertiary, #ccc);
-  background: transparent;
-  cursor: pointer;
-}
-
-.veiled-rolls .veiled-rolls-chip.is-on {
-  border-color: rgba(90, 130, 200, 0.9);
-  background: rgba(90, 130, 200, 0.18);
-  font-weight: 600;
-}
-
-.veiled-rolls .veiled-rolls-pill.is-request {
-  border: 1px solid var(--color-border-light-primary, #888);
-}
-
-.veiled-rolls .veiled-rolls-pill.is-request:hover {
-  border-color: rgba(90, 130, 200, 0.9);
-  background: rgba(90, 130, 200, 0.14);
-}
-
-/* Compact status bar replacing the former filter-state block. */
-.veiled-rolls .veiled-rolls-statusbar-line {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.veiled-rolls .veiled-rolls-statusbar-name {
-  font-weight: 600;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.veiled-rolls .veiled-rolls-statusbar-actions {
-  display: inline-flex;
-  gap: 0.2rem;
-}
-
-/* Request-centric layout: one row per roll, group + per-player buttons. */
-.veiled-rolls .veiled-rolls-request-list {
-  list-style: none;
-  margin: 0;
+/* ------------------------------------------------------------------------ */
+/*  Hotbar access button                                                     */
+/* ------------------------------------------------------------------------ */
+.veiled-rolls-hotbar-button {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  width: 2.2rem;
+  height: 2.2rem;
+  margin: 0 0.35rem 0.2rem 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.veiled-rolls .veiled-rolls-request-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--color-border-light-tertiary, #ccc);
-  border-radius: 0.4rem;
-}
-
-.veiled-rolls .veiled-rolls-request-roll {
-  font-weight: 600;
-}
-
-.veiled-rolls .veiled-rolls-request-scopes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.veiled-rolls .veiled-rolls-pill.is-group {
-  border: 1px solid rgba(90, 130, 200, 0.9);
-  background: rgba(90, 130, 200, 0.16);
-  font-weight: 600;
-}
-
-.veiled-rolls .veiled-rolls-pill.is-group:hover {
-  background: rgba(90, 130, 200, 0.28);
-}
-
-/* ---------------------------------------------------------------------- */
-/*  Scriptorium-aligned design tokens and components                       */
-/*  Mirrors Campaign Scriptorium's palette so the two modules feel like    */
-/*  one family: vellum text, verdigris accent, brass for "done", rust for  */
-/*  danger, deliberately subtle 4px corners.                               */
-/* ---------------------------------------------------------------------- */
-.veiled-rolls {
-  --vr-slate-900: #14161c;
-  --vr-slate-800: #1b1e26;
-  --vr-slate-700: #242833;
-  --vr-slate-600: #333846;
-  --vr-vellum: #ded5c0;
-  --vr-vellum-dim: #9a9484;
-  --vr-verdigris: #6fae9d;
-  --vr-verdigris-deep: #3d6b60;
-  --vr-brass: #c9a227;
-  --vr-rust: #a34a3f;
-  --vr-radius: 4px;
-}
-
-.theme-light .veiled-rolls,
-.veiled-rolls.theme-light {
-  --vr-slate-900: #ece7db;
-  --vr-slate-800: #f4f0e6;
-  --vr-slate-700: #ffffff;
-  --vr-slate-600: #cdc5b4;
-  --vr-vellum: #23252c;
-  --vr-vellum-dim: #5f5a4f;
-  --vr-verdigris-deep: #2c5148;
-}
-
-.veiled-rolls .veiled-rolls-root { color: var(--vr-vellum); }
-.veiled-rolls h2,
-.veiled-rolls h3 { color: var(--vr-verdigris); }
-.veiled-rolls .veiled-rolls-muted { color: var(--vr-vellum-dim); opacity: 1; }
-
-/* Cards (blocks list) — Scriptorium's cc-card look. */
-.veiled-rolls .cc-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  background: var(--vr-slate-700);
-  border: 1px solid transparent;
-  border-radius: var(--vr-radius);
-  padding: 0.4rem 0.55rem;
-  cursor: pointer;
-  transition: border-color 120ms ease, transform 120ms ease;
-}
-
-.veiled-rolls .cc-card:hover { border-color: var(--vr-verdigris-deep); transform: translateX(2px); }
-.veiled-rolls .cc-card.is-active { border-color: var(--vr-verdigris); background: var(--vr-slate-800); }
-.veiled-rolls .cc-card:focus-visible { outline: 2px solid var(--vr-verdigris); outline-offset: 1px; }
-
-/* Chips (request buttons) — Scriptorium's cc-chip look. */
-.veiled-rolls .cc-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.6rem;
-  background: var(--vr-slate-700);
-  border: 1px solid var(--vr-slate-600);
-  border-radius: 999px;
-  color: var(--vr-vellum-dim);
-  font-size: 0.78rem;
+  justify-content: center;
   cursor: pointer;
-  white-space: nowrap;
+  border: 1px solid var(--color-border-dark, #000);
+  border-radius: 0.3rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-text-light-highlight, #f0f0e0);
 }
 
-.veiled-rolls .cc-chip:hover { border-color: var(--vr-verdigris); color: var(--vr-vellum); }
-.veiled-rolls .cc-chip--primary { background: var(--vr-verdigris-deep); border-color: var(--vr-verdigris); color: var(--vr-vellum); }
-.veiled-rolls .cc-chip--primary:hover { filter: brightness(1.1); }
+.veiled-rolls-hotbar-button:hover { border-color: var(--color-shadow-primary, #ff6400); }
 
-/* Status tags — cc-tag with active (verdigris) / done (brass) / todo (dim). */
-.veiled-rolls .cc-tag {
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--vr-vellum-dim);
+.veiled-rolls-hotbar-button.is-active {
+  border-color: rgba(60, 200, 110, 0.9);
+  box-shadow: 0 0 6px rgba(60, 200, 110, 0.6);
 }
-
-.veiled-rolls .cc-tag--soft { border: 1px solid var(--vr-slate-600); }
-.veiled-rolls .cc-tag--requested,
-.veiled-rolls .cc-tag--active { color: var(--vr-verdigris); border-color: var(--vr-verdigris-deep); }
-.veiled-rolls .cc-tag--done { color: var(--vr-brass); border-color: var(--vr-brass); }
-
-/* Request rows: head line (label + status), dim once done. */
-.veiled-rolls .veiled-rolls-request-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.veiled-rolls .veiled-rolls-request-row.is-done { opacity: 0.6; }
-.veiled-rolls .veiled-rolls-request-row.is-requested { border-color: var(--vr-verdigris-deep); }
-
-/* Prepared-rolls list: folder groups and per-roll status colouring. */
-.veiled-rolls .veiled-rolls-folder { margin-bottom: 0.4rem; }
-
-.veiled-rolls .veiled-rolls-folder-head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--vr-slate-600);
-  padding: 0.25rem 0.1rem;
-  color: var(--vr-vellum);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.veiled-rolls .veiled-rolls-folder-head:hover { color: var(--vr-verdigris); }
-.veiled-rolls .veiled-rolls-folder-name { flex: 1; text-align: left; }
-
-.veiled-rolls .veiled-rolls-request-list {
-  list-style: none;
-  margin: 0.35rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.veiled-rolls .veiled-rolls-request-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.4rem 0.55rem;
-  border-left: 3px solid var(--vr-slate-600);
-  cursor: default;
-}
-
-.veiled-rolls .veiled-rolls-request-row:hover { transform: none; }
-
-/* Colour change by status — the key readability signal. */
-.veiled-rolls .veiled-rolls-request-row.status-todo {
-  border-left-color: var(--vr-slate-600);
-}
-.veiled-rolls .veiled-rolls-request-row.status-requested {
-  border-left-color: var(--vr-verdigris);
-  background: color-mix(in srgb, var(--vr-verdigris) 10%, var(--vr-slate-700));
-}
-.veiled-rolls .veiled-rolls-request-row.status-done {
-  border-left-color: var(--vr-brass);
-  background: color-mix(in srgb, var(--vr-brass) 12%, var(--vr-slate-700));
-}
-.veiled-rolls .veiled-rolls-request-row.status-done .veiled-rolls-request-roll { color: var(--vr-vellum-dim); }
-
-.veiled-rolls .veiled-rolls-roll-block { font-weight: 400; font-size: 0.72rem; }
-.veiled-rolls .veiled-rolls-header-actions { display: inline-flex; gap: 0.6rem; }
-
-/* Single-line roll rows: label on the left, status + buttons on the right. */
-.veiled-rolls .veiled-rolls-request-row {
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.6rem;
-}
-.veiled-rolls .veiled-rolls-request-row .veiled-rolls-request-roll { flex: 1 1 40%; min-width: 0; }
-.veiled-rolls .veiled-rolls-request-row .cc-tag { flex: 0 0 auto; }
-.veiled-rolls .veiled-rolls-request-row .veiled-rolls-request-scopes {
-  margin-left: auto;
-  display: inline-flex;
-  gap: 0.35rem;
-}
-
-/* Player picker dialog (rendered outside the .veiled-rolls scope). */
-.veiled-rolls-pick-list { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.25rem 0; }
-.veiled-rolls-pick { display: flex; align-items: center; gap: 0.45rem; cursor: pointer; }
